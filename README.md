@@ -35,14 +35,16 @@ Static industrial inspection tracker built with HTML, CSS, Vanilla JavaScript, a
 6. Fill rows and upload the Excel:
    - For inspections: existing `id` -> updates same record; blank `id` -> adds new equipment.
    - For users: existing `username` -> updates user; new `username` -> adds user.
+7. Optional: choose **Default Unit for Blank Rows** so missing unit values are auto-filled during inspection upload.
 
 ## Inspection workflow
 
-- Filter by unit.
-- Filter by equipment type tabs.
+- Filter by unit from top dropdown.
+- Filter by equipment type tabs (Pipeline, Vessel, Exchanger, Steam Trap, Tank).
+- Unit-wise equipment panels are shown separately.
 - Search by equipment tag.
-- Edit a row using **Edit**.
-- Select one or many rows and use **Mark Selected Completed**.
+- Open edit form from row **Edit** action.
+- Select one, many, or full-unit rows and use **Mark Selected Completed**.
 - Use **Add Equipment** to open the entry form only when needed.
 
 ## Observation workflow
