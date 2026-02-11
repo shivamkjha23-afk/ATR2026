@@ -23,17 +23,38 @@ Static industrial inspection tracker built with HTML, CSS, Vanilla JavaScript, a
 - Each user object includes:
   - `username`, `role`, `approved`, `request_date`, `approved_by`.
 
-> Note: Runtime updates are stored in browser `localStorage` for static hosting compatibility.
+> Runtime updates are stored in browser `localStorage` for static hosting compatibility.
 
-## How admin approves users
+## Admin workflow
 
 1. Log in as `shivam.jha` from `index.html`.
 2. Open **Admin Panel**.
-3. In **Pending Access Requests**, click **Approve** beside the user.
-4. The user status changes to approved and the approver is recorded.
+3. Approve pending users using the **Approve** button.
+4. In admin **Upload Type (Dropdown)** choose `Inspections` or `Users`.
+5. Download the matching Excel format from **Download Excel Template**.
+6. Fill rows and upload the Excel:
+   - For inspections: existing `id` -> updates same record; blank `id` -> adds new equipment.
+   - For users: existing `username` -> updates user; new `username` -> adds user.
+
+## Inspection workflow
+
+- Filter by unit.
+- Filter by equipment type tabs.
+- Search by equipment tag.
+- Edit a row using **Edit**.
+- Select one or many rows and use **Mark Selected Completed**.
+- Use **Add Equipment** to open the entry form only when needed.
+
+## Observation workflow
+
+- Use **Add New Observation** to open form on demand.
+- Attach multiple images.
+- Save and view past observations in table.
+- Draft email in Outlook-compatible `mailto` format.
+- Generate PDF report from observation details.
 
 ## Modules
 
 - `js/storage.js` – JSON loading/saving and data operations.
 - `js/dashboard.js` – progress calculations and Chart.js rendering.
-- `js/app.js` – page navigation behavior, user detection, role checks, and UI interactions.
+- `js/app.js` – theme toggle, role checks, inspection workflow, observation workflow, and admin Excel upload.
