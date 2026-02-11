@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Observation Entry | ATR-2026 Tracker</title>
   <link rel="stylesheet" href="css/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 </head>
 <body data-page="observation">
   <div class="app-shell">
@@ -21,11 +22,38 @@
     <section class="content">
       <header class="header">
         <h1>ATR-2026 Shutdown Tracker</h1>
-        <p>Logged in as: <span id="loggedInUser">WindowsUser</span></p>
+        <div class="header-right">
+          <p>Logged in as: <span id="loggedInUser">WindowsUser</span></p>
+          <button id="themeToggleBtn" class="btn" type="button">Toggle Theme</button>
+        </div>
       </header>
 
       <main>
-        <section class="form-card">
+        <section class="table-card">
+          <div class="list-actions">
+            <h2>Past Observations</h2>
+            <button class="btn btn-primary" type="button" id="openObservationFormBtn">Add New Observation</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tag</th>
+                  <th>Unit</th>
+                  <th>Location</th>
+                  <th>Observation</th>
+                  <th>Recommendation</th>
+                  <th>Images</th>
+                  <th>Date</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="observationsTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="form-card hidden" id="observationFormPanel">
           <h2>Observation Entry</h2>
           <form id="observationForm" class="form-grid">
             <label>Tag Number
@@ -43,13 +71,15 @@
             <label class="full-width">Recommendation
               <textarea id="obsRecommendation" required></textarea>
             </label>
-            <label class="full-width">Image Upload
-              <input type="file" id="obsImage" accept="image/*" />
+            <label class="full-width">Image Uploads
+              <input type="file" id="obsImage" accept="image/*" multiple />
             </label>
-            <img id="imagePreview" class="image-preview" alt="Upload preview" />
+            <div class="multi-preview" id="imagePreviewList"></div>
             <div class="actions full-width">
               <button class="btn btn-primary" type="submit">Save Observation</button>
               <button class="btn" type="button" id="draftEmailBtn">Draft Email</button>
+              <button class="btn" type="button" id="downloadObservationPdfBtn">Download PDF Report</button>
+              <button class="btn" type="button" id="closeObservationFormBtn">Close Form</button>
             </div>
           </form>
         </section>
