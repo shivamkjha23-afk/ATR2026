@@ -1,0 +1,16 @@
+[
+  {
+    "username": "shivam.jha",
+    "role": "admin",
+    "approved": true,
+    "request_date": "2025-12-01",
+    "approved_by": "system"
+  },
+  {
+    "username": "inspector.pata",
+    "role": "inspector",
+    "approved": false,
+    "request_date": "2026-01-05",
+    "approved_by": ""
+  }
+]
