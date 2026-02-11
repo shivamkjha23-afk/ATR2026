@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin Panel | ATR-2026 Tracker</title>
   <link rel="stylesheet" href="css/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body data-page="admin">
   <div class="app-shell">
@@ -21,12 +22,24 @@
     <section class="content">
       <header class="header">
         <h1>ATR-2026 Shutdown Tracker</h1>
-        <p>Logged in as: <span id="loggedInUser">WindowsUser</span></p>
+        <div class="header-right">
+          <p>Logged in as: <span id="loggedInUser">WindowsUser</span></p>
+          <button id="themeToggleBtn" class="btn" type="button">Toggle Theme</button>
+        </div>
       </header>
 
       <main class="admin-grid">
         <section class="table-card">
           <h2>Pending Access Requests</h2>
+          <div class="list-actions">
+            <label>User Filter
+              <select id="adminUserFilter">
+                <option value="all">All</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+              </select>
+            </label>
+          </div>
           <div class="table-wrap">
             <table>
               <thead>
@@ -44,9 +57,31 @@
         </section>
 
         <section class="form-card">
-          <h3>Bulk Upload JSON</h3>
-          <input type="file" id="bulkUploadFile" accept="application/json" />
-          <button class="btn btn-primary" id="bulkUploadBtn" type="button">Upload JSON Data</button>
+          <h3>Bulk Upload Data (Excel)</h3>
+          <p class="hint">For inspections: existing `id` updates record, blank `id` creates a new record.</p>
+
+          <label>Upload Type (Dropdown)
+            <select id="uploadTypeSelect">
+              <option value="inspections">Inspections</option>
+              <option value="users">Users</option>
+            </select>
+          </label>
+
+          <label>Default Unit for Blank Rows (Inspections)
+            <select id="defaultUploadUnit">
+              <option value="">No Default</option>
+              <option>GCU-1</option><option>GCU-2</option><option>GPU-1</option><option>GPU-2</option>
+              <option>HDPE-1</option><option>HDPE-2</option><option>LLDPE-1</option><option>LLDPE-2</option>
+              <option>PP-1</option><option>PP-2</option><option>LPG</option><option>SPHERE</option>
+              <option>YARD</option><option>FLAKER-1</option><option>BOG</option><option>IOP</option>
+            </select>
+          </label>
+
+          <div class="actions">
+            <button class="btn" id="downloadTemplateBtn" type="button">Download Excel Template</button>
+          </div>
+          <input type="file" id="bulkUploadFile" accept=".xlsx,.xls" />
+          <button class="btn btn-primary" id="bulkUploadBtn" type="button">Upload Excel Data</button>
           <p id="bulkUploadMessage"></p>
         </section>
 
