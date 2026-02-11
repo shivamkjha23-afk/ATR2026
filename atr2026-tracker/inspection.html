@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Update Inspection | ATR-2026</title>
+  <link rel="stylesheet" href="./css/styles.css" />
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">ATR-2026 Shutdown Inspection Tracker<br/>PATA Plant</div>
+    <a class="nav-link" href="dashboard.html">Dashboard</a>
+    <a class="nav-link" href="inspection.html">Update Inspection</a>
+    <a class="nav-link" href="observation.html">Observation Entry</a>
+    <a class="nav-link" href="admin.html">Admin Panel</a>
+  </aside>
+  <main class="main">
+    <header class="header">
+      <h1 class="page-title">ATR-2026 Shutdown Tracker</h1>
+      <div>Logged in as: <strong id="loggedInUser">WindowsUser</strong></div>
+    </header>
+
+    <form id="inspectionForm">
+      <div class="field-grid">
+        <div><label for="search_tag">Search Equipment Tag</label><input id="search_tag" type="text" /></div>
+        <div><label>&nbsp;</label><button id="searchTagBtn" type="button" class="secondary">Search</button></div>
+        <div><label for="unit_name">Unit</label><select id="unit_name" name="unit_name"></select></div>
+        <div><label for="equipment_type">Equipment Type</label><select id="equipment_type" name="equipment_type"></select></div>
+        <div><label for="equipment_tag_number">Equipment Tag Number</label><input id="equipment_tag_number" name="equipment_tag_number" required /></div>
+        <div><label for="equipment_name">Equipment Name</label><input id="equipment_name" name="equipment_name" /></div>
+        <div><label for="inspection_type">Inspection Type</label><select id="inspection_type" name="inspection_type"></select></div>
+        <div><label for="last_inspection_year">Last Inspection Year</label><input id="last_inspection_year" name="last_inspection_year" type="number" /></div>
+        <div><label for="inspection_possible">Inspection Possible</label><input id="inspection_possible" name="inspection_possible" placeholder="Yes / No" /></div>
+        <div><label for="inspection_date">Inspection Date</label><input id="inspection_date" name="inspection_date" type="date" /></div>
+        <div><label for="status">Status</label><input id="status" name="status" /></div>
+        <div><label for="final_status">Final Status</label><select id="final_status" name="final_status"></select></div>
+        <div><label for="remarks">Remarks</label><textarea id="remarks" name="remarks"></textarea></div>
+        <div><label for="recommendation">Recommendation</label><textarea id="recommendation" name="recommendation"></textarea></div>
+      </div>
+      <div class="btn-row">
+        <button type="submit">Save Update</button>
+        <button type="button" id="markCompletedBtn" class="success">Mark Completed</button>
+      </div>
+    </form>
+  </main>
+</div>
+<script src="./js/storage.js"></script>
+<script src="./js/dashboard.js"></script>
+<script src="./js/app.js"></script>
+</body>
+</html>
