@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -21,53 +21,13 @@
     <section class="content">
       <header class="header">
         <h1>ATR-2026 Shutdown Tracker</h1>
-        <div class="header-right">
-          <p>Logged in as: <span id="loggedInUser">WindowsUser</span></p>
-          <button id="themeToggleBtn" class="btn" type="button">Toggle Theme</button>
-        </div>
+        <p>Logged in as: <span id="loggedInUser">WindowsUser</span></p>
       </header>
 
       <main>
-        <section class="table-card">
-          <div class="list-actions">
-            <label>Filter Unit
-              <select id="unitFilter"></select>
-            </label>
-            <label>Search Tag
-              <input type="text" id="tagSearch" placeholder="Enter equipment tag" />
-            </label>
-            <button class="btn btn-primary" type="button" id="openAddEquipmentBtn">Add Equipment</button>
-            <button class="btn" type="button" id="markSelectedCompletedBtn">Mark Selected Completed</button>
-          </div>
-
-          <div class="filter-tabs" id="equipmentTypeTabs"></div>
-
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th><input type="checkbox" id="selectAllRows" /></th>
-                  <th>ID</th>
-                  <th>Tag</th>
-                  <th>Unit</th>
-                  <th>Type</th>
-                  <th>Inspection</th>
-                  <th>Final Status</th>
-                  <th>Updated By</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody id="inspectionTableBody"></tbody>
-            </table>
-          </div>
-        </section>
-
-        <section class="form-card hidden" id="inspectionFormPanel">
-          <h2 id="inspectionFormTitle">Add Equipment</h2>
+        <section class="form-card">
+          <h2>Update Inspection</h2>
           <form id="inspectionForm" class="form-grid">
-            <label>ID
-              <input type="number" id="id" />
-            </label>
             <label>Equipment Tag Number
               <input type="text" id="equipment_tag_number" required />
             </label>
@@ -125,9 +85,28 @@
             <div class="actions full-width">
               <button class="btn btn-primary" type="submit">Save Update</button>
               <button class="btn" type="button" id="markCompletedBtn">Mark Completed</button>
-              <button class="btn" type="button" id="closeInspectionFormBtn">Close Form</button>
             </div>
           </form>
+        </section>
+
+        <section class="table-card">
+          <h3>Search by Equipment Tag</h3>
+          <input type="text" id="tagSearch" placeholder="Enter equipment tag" />
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tag</th>
+                  <th>Unit</th>
+                  <th>Type</th>
+                  <th>Inspection</th>
+                  <th>Final Status</th>
+                  <th>Updated By</th>
+                </tr>
+              </thead>
+              <tbody id="inspectionTableBody"></tbody>
+            </table>
+          </div>
         </section>
       </main>
     </section>

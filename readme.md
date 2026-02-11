@@ -4,10 +4,10 @@ Static industrial inspection tracker built with HTML, CSS, Vanilla JavaScript, a
 
 ## Deploy on GitHub Pages
 
-1. Push this repository to GitHub with the app files in the repository root.
+1. Push this folder to your repository (for example, in the repo root).
 2. In GitHub, open **Settings → Pages**.
 3. Under **Build and deployment**, select **Deploy from a branch**.
-4. Select the branch (for example `main`) and folder (`/` root).
+4. Select the branch (for example `main`) and folder (`/root` if this folder is at repo root, or `/docs` if moved there).
 5. Save and wait for deployment.
 6. Open the published URL and start with `index.html`.
 

@@ -1,11 +1,10 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin Panel | ATR-2026 Tracker</title>
   <link rel="stylesheet" href="css/styles.css" />
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body data-page="admin">
   <div class="app-shell">
@@ -22,10 +21,7 @@
     <section class="content">
       <header class="header">
         <h1>ATR-2026 Shutdown Tracker</h1>
-        <div class="header-right">
-          <p>Logged in as: <span id="loggedInUser">WindowsUser</span></p>
-          <button id="themeToggleBtn" class="btn" type="button">Toggle Theme</button>
-        </div>
+        <p>Logged in as: <span id="loggedInUser">WindowsUser</span></p>
       </header>
 
       <main class="admin-grid">
@@ -48,13 +44,9 @@
         </section>
 
         <section class="form-card">
-          <h3>Bulk Upload Inspection Data (Excel)</h3>
-          <p class="hint">If `id` exists, the row updates that equipment. If `id` is blank, a new record is added.</p>
-          <div class="actions">
-            <button class="btn" id="downloadTemplateBtn" type="button">Download Excel Template</button>
-          </div>
-          <input type="file" id="bulkUploadFile" accept=".xlsx,.xls" />
-          <button class="btn btn-primary" id="bulkUploadBtn" type="button">Upload Excel Data</button>
+          <h3>Bulk Upload JSON</h3>
+          <input type="file" id="bulkUploadFile" accept="application/json" />
+          <button class="btn btn-primary" id="bulkUploadBtn" type="button">Upload JSON Data</button>
           <p id="bulkUploadMessage"></p>
         </section>
 
