@@ -91,6 +91,13 @@ html[data-theme='light'] .btn { background: #334155; }
 .tab-btn { width: auto; margin: 0; }
 .tab-btn.active { background: #1d4ed8; }
 
+
+.unit-lists { display: grid; gap: 0.8rem; }
+.unit-panel { border: 1px solid var(--border); border-radius: 10px; background: var(--panel); }
+.unit-panel-head { display: flex; justify-content: space-between; align-items: center; padding: 0.7rem 0.9rem; border-bottom: 1px solid var(--border); }
+.unit-panel-head h4 { margin: 0; }
+.unit-panel .table-wrap { padding: 0.4rem 0.8rem 0.8rem; }
+
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }
 th, td { border-bottom: 1px solid var(--border); padding: 0.6rem; text-align: left; font-size: 0.9rem; }

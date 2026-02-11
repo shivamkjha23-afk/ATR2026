@@ -92,7 +92,7 @@ function setupInspectionPage() {
   const formPanel = document.getElementById('inspectionFormPanel');
   const form = document.getElementById('inspectionForm');
   const formTitle = document.getElementById('inspectionFormTitle');
-  const tableBody = document.getElementById('inspectionTableBody');
+  const unitLists = document.getElementById('unitWiseLists');
   const unitFilter = document.getElementById('unitFilter');
   const tagSearch = document.getElementById('tagSearch');
   const tabs = document.getElementById('equipmentTypeTabs');
@@ -104,18 +104,17 @@ function setupInspectionPage() {
   unitFilter.insertAdjacentHTML('afterbegin', '<option value="All">All Units</option>');
   EQUIPMENT_TYPES.forEach((t) => document.getElementById('equipment_type').insertAdjacentHTML('beforeend', `<option>${t}</option>`));
 
-  const typeFilters = ['All', ...EQUIPMENT_TYPES];
+  const typeFilters = ['All', 'Pipeline', 'Vessel', 'Exchanger', 'Steam Trap', 'Tank'];
   let activeType = 'All';
   let editModeTag = '';
 
   tabs.innerHTML = typeFilters.map((t) => `<button class="btn tab-btn ${t === 'All' ? 'active' : ''}" data-type="${t}" type="button">${t}</button>`).join('');
-
   tabs.querySelectorAll('.tab-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       activeType = btn.dataset.type;
       tabs.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
-      renderInspectionRows();
+      renderUnitWiseLists();
     });
   });
 
@@ -141,7 +140,17 @@ function setupInspectionPage() {
     });
   }
 
-  function renderInspectionRows() {
+  function groupedByUnit(items) {
+    const groups = {};
+    items.forEach((item) => {
+      const unit = item.unit_name || 'Unassigned';
+      if (!groups[unit]) groups[unit] = [];
+      groups[unit].push(item);
+    });
+    return groups;
+  }
+
+  function renderUnitWiseLists() {
     const inspections = getInspections();
     const filtered = inspections.filter((item) => {
       const unitOk = unitFilter.value === 'All' || unitFilter.value === item.unit_name;
@@ -150,28 +159,61 @@ function setupInspectionPage() {
       return unitOk && typeOk && tagOk;
     });
 
-    tableBody.innerHTML = filtered.map((item) => {
-      const badgeClass = item.final_status === 'Completed' ? 'completed' : item.final_status === 'In Progress' ? 'progress' : 'notstarted';
-      return `<tr>
-        <td><input type="checkbox" class="inspection-selector" data-tag="${item.equipment_tag_number}" /></td>
-        <td>${item.id || '-'}</td>
-        <td>${item.equipment_tag_number || '-'}</td>
-        <td>${item.unit_name || '-'}</td>
-        <td>${item.equipment_type || '-'}</td>
-        <td>${item.inspection_type || '-'}</td>
-        <td><span class="badge ${badgeClass}">${item.final_status || 'Not Started'}</span></td>
-        <td>${item.updated_by || '-'}</td>
-        <td><button class="btn edit-equipment-btn" data-tag="${item.equipment_tag_number}" type="button">Edit</button></td>
-      </tr>`;
+    const groups = groupedByUnit(filtered);
+    const units = Object.keys(groups);
+
+    if (!units.length) {
+      unitLists.innerHTML = '<p class="hint">No equipment found for selected filters.</p>';
+      return;
+    }
+
+    unitLists.innerHTML = units.map((unit) => {
+      const rows = groups[unit].map((item) => {
+        const badgeClass = item.final_status === 'Completed' ? 'completed' : item.final_status === 'In Progress' ? 'progress' : 'notstarted';
+        return `<tr>
+          <td><input type="checkbox" class="inspection-selector" data-tag="${item.equipment_tag_number}" /></td>
+          <td>${item.id || '-'}</td>
+          <td>${item.equipment_tag_number || '-'}</td>
+          <td>${item.equipment_type || '-'}</td>
+          <td>${item.inspection_type || '-'}</td>
+          <td><span class="badge ${badgeClass}">${item.final_status || 'Not Started'}</span></td>
+          <td>${item.updated_by || '-'}</td>
+          <td><button class="btn edit-equipment-btn" data-tag="${item.equipment_tag_number}" type="button">Edit</button></td>
+        </tr>`;
+      }).join('');
+
+      return `<section class="unit-panel">
+        <div class="unit-panel-head">
+          <h4>${unit} (${groups[unit].length})</h4>
+          <button class="btn unit-select-all" data-unit="${unit}" type="button">Select All in ${unit}</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Select</th><th>ID</th><th>Tag</th><th>Type</th><th>Inspection</th><th>Final Status</th><th>Updated By</th><th>Action</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </section>`;
     }).join('');
 
-    tableBody.querySelectorAll('.edit-equipment-btn').forEach((btn) => {
+    unitLists.querySelectorAll('.edit-equipment-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         const selected = getInspections().find((i) => i.equipment_tag_number === btn.dataset.tag);
         if (!selected) return;
         editModeTag = selected.equipment_tag_number;
         fillForm(selected);
         openForm('Edit Equipment');
+      });
+    });
+
+    unitLists.querySelectorAll('.unit-select-all').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const panel = btn.closest('.unit-panel');
+        panel.querySelectorAll('.inspection-selector').forEach((cb) => { cb.checked = true; });
       });
     });
   }
@@ -207,14 +249,14 @@ function setupInspectionPage() {
     updateInspection(editModeTag || payload.equipment_tag_number, payload);
     alert('Inspection saved.');
     closeForm();
-    renderInspectionRows();
+    renderUnitWiseLists();
   });
 
   document.getElementById('markCompletedBtn').addEventListener('click', () => {
     const tag = document.getElementById('equipment_tag_number').value;
     if (!tag) return;
     updateInspection(tag, { equipment_tag_number: tag, final_status: 'Completed', updated_by: getLoggedInUser(), update_date: new Date().toISOString().slice(0, 10) });
-    renderInspectionRows();
+    renderUnitWiseLists();
   });
 
   document.getElementById('markSelectedCompletedBtn').addEventListener('click', () => {
@@ -226,18 +268,12 @@ function setupInspectionPage() {
     selectedTags.forEach((tag) => {
       updateInspection(tag, { equipment_tag_number: tag, final_status: 'Completed', updated_by: getLoggedInUser(), update_date: new Date().toISOString().slice(0, 10) });
     });
-    renderInspectionRows();
+    renderUnitWiseLists();
   });
 
-  document.getElementById('selectAllRows').addEventListener('change', (e) => {
-    document.querySelectorAll('.inspection-selector').forEach((cb) => {
-      cb.checked = e.target.checked;
-    });
-  });
-
-  unitFilter.addEventListener('change', renderInspectionRows);
-  tagSearch.addEventListener('input', renderInspectionRows);
-  renderInspectionRows();
+  unitFilter.addEventListener('change', renderUnitWiseLists);
+  tagSearch.addEventListener('input', renderUnitWiseLists);
+  renderUnitWiseLists();
 }
 
 function wrapText(doc, text, x, yStart, lineHeight, maxWidth) {
