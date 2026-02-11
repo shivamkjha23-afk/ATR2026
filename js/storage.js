@@ -1,3 +1,4 @@
+
 const STORAGE_KEYS = {
   inspections: 'atr2026_inspections',
   users: 'atr2026_users',
