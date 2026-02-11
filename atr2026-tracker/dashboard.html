@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard | ATR-2026</title>
+  <link rel="stylesheet" href="./css/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="app-shell" id="dashboardPage">
+    <aside class="sidebar">
+      <div class="brand">ATR-2026 Shutdown Inspection Tracker<br/>PATA Plant</div>
+      <a class="nav-link" href="dashboard.html">Dashboard</a>
+      <a class="nav-link" href="inspection.html">Update Inspection</a>
+      <a class="nav-link" href="observation.html">Observation Entry</a>
+      <a class="nav-link" href="admin.html">Admin Panel</a>
+    </aside>
+    <main class="main">
+      <header class="header">
+        <h1 class="page-title">ATR-2026 Shutdown Tracker</h1>
+        <div>Logged in as: <strong id="loggedInUser">WindowsUser</strong></div>
+      </header>
+
+      <section class="card-grid">
+        <div class="card"><h3>Total Equipment</h3><div class="metric" id="totalCount">0</div></div>
+        <div class="card"><h3>Completed</h3><div class="metric" id="completedCount">0</div></div>
+        <div class="card"><h3>In Progress</h3><div class="metric" id="inProgressCount">0</div></div>
+        <div class="card"><h3>Not Started</h3><div class="metric" id="notStartedCount">0</div></div>
+      </section>
+
+      <section class="two-col">
+        <div class="card"><canvas id="vesselChart"></canvas></div>
+        <div class="card"><canvas id="pipelineChart"></canvas></div>
+        <div class="card"><canvas id="steamChart"></canvas></div>
+        <div class="card"><canvas id="unitChart"></canvas></div>
+      </section>
+
+      <section class="table-wrap">
+        <table id="inspectionTable">
+          <thead>
+            <tr><th>Tag</th><th>Unit</th><th>Type</th><th>Status</th><th>Updated By</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+    </main>
+  </div>
+
+  <script src="./js/storage.js"></script>
+  <script src="./js/dashboard.js"></script>
+  <script src="./js/app.js"></script>
+</body>
+</html>
