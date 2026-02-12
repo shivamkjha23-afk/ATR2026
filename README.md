@@ -1,11 +1,11 @@
 # ATR-2026 Shutdown Inspection Tracker – PATA Plant
 
-Static GitHub Pages-ready web app (HTML/CSS/Vanilla JS + JSON seed files + localStorage runtime DB).
+Static GitHub Pages-ready web app (HTML/CSS/Vanilla JS) using Firebase Firestore as central live database and Cloudinary for images.
 
 ## Login / Authentication
 
 - Login requires **User ID + Password**.
-- Users are loaded from `data/users.json`.
+- Users are stored in Firebase Firestore (`atr2026/runtime.users`).
 - Admin can approve new requested users.
 - Every created/updated record stores:
   - `entered_by`
@@ -18,37 +18,55 @@ Default admin:
 
 ## Data Model (central runtime DB)
 
-Runtime data is synchronized into one central browser DB object (`atr2026_db`) and seeded from:
+All runtime data is stored directly in Firebase Firestore document:
+- `atr2026/runtime`
 
-- `data/inspections.json`
-- `data/observations.json`
-- `data/requisitions.json`
-- `data/users.json`
-
-Images are stored as data records with path keys under:
-- `data/images/` (logical path stored in DB)
-
+Document fields:
+- `inspections[]`
+- `observations[]`
+- `requisitions[]`
+- `users[]`
+- `images{}` (Cloudinary URL map)
+- `_meta.last_updated`
 
 ## Central Storage Note (Important)
 
 Because GitHub Pages is static, browser edits do not automatically write back to repository files.
 
-This project now uses **JSONBin as cloud backend**:
-- Automatic sync on every submit/save/delete from login settings (no admin intervention required after setup).
-- Manual force-sync button in Admin panel.
-- Full runtime database is synced to the configured JSONBin bin.
-- Sync runs automatically after add/edit/delete/submit actions.
-- Images are saved in the `images` object and synced with the same payload.
+This project now uses **Firebase Firestore + Cloudinary**:
+- All add/edit/delete/submit actions sync to Firebase automatically.
+- Live updates are pulled from Firebase so all users see shared data.
+- Observation images are uploaded to Cloudinary and saved as URLs in the central database.
+- Manual force-sync is available from Admin panel.
 
 ### What you need to do (One-time setup)
-1. Create a Bin in [JSONBin](https://jsonbin.io/app/bins).
-2. Copy your **Bin ID** from JSONBin.
-3. Copy your **Master Key** from JSONBin Access Keys.
-4. In Login page → Cloud Sync Settings:
-   - JSONBin Bin ID
-   - JSONBin Master Key
-   - Enable automatic cloud sync
-5. Login and use app normally. All add/edit/delete actions sync to JSONBin.
+1. Open Firebase console for project `atr2026-6541f`.
+2. Enable **Authentication → Sign-in method → Google**.
+3. Enable **Firestore Database** in production mode.
+4. Create Firestore document path: `atr2026/runtime` (or let app create it automatically on first sync).
+5. Add your GitHub Pages domain in Firebase Auth authorized domains.
+6. In Cloudinary:
+   - Create an **unsigned upload preset**.
+   - Copy `cloud name` and `upload preset`.
+7. In Login page → Cloud Sync Settings:
+   - Cloudinary Cloud Name
+   - Cloudinary Upload Preset
+   - Enable automatic Firebase sync
+8. Use Google Sign-in (or existing local login). Admin can approve first-time Google users.
+
+### Suggested Firestore security rules
+Use admin-approved user list from runtime document for write control. Start with strict authenticated access:
+
+```txt
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /atr2026/runtime {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+```
 
 ## Admin Excel Upload Rules
 
