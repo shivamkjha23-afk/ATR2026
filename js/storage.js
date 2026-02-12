@@ -48,6 +48,10 @@ function sanitizeName(value) {
   return String(value || 'entry').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40) || 'entry';
 }
 
+function normalizeUsername(username) {
+  return String(username || '').trim().toLowerCase();
+}
+
 function bootFirebase() {
   if (firebaseReady) return;
   if (!window.firebase) throw new Error('Firebase SDK not loaded.');
@@ -177,24 +181,30 @@ function getImageData(path) {
 }
 
 function getUser(username) {
-  return getCollection('users').find((u) => u.username === username);
+  const normalized = normalizeUsername(username);
+  return getCollection('users').find((u) => normalizeUsername(u.username) === normalized);
 }
 
 function requestAccess(user) {
   const users = getCollection('users');
-  users.push(withAudit(user));
+  const normalizedUsername = normalizeUsername(user.username);
+  const existingIndex = users.findIndex((u) => normalizeUsername(u.username) === normalizedUsername);
+  const payload = withAudit({ ...user, username: normalizedUsername }, existingIndex >= 0);
+  if (existingIndex >= 0) users[existingIndex] = payload;
+  else users.push(payload);
   saveCollection('users', users);
 }
 
 function approveUser(username, approvedBy = 'shivam.jha') {
+  const normalizedUsername = normalizeUsername(username);
   const users = getCollection('users').map((u) => (
-    u.username === username ? withAudit({ ...u, approved: true, approved_by: approvedBy }, true) : u
+    normalizeUsername(u.username) === normalizedUsername ? withAudit({ ...u, approved: true, approved_by: approvedBy }, true) : u
   ));
   saveCollection('users', users);
 }
 
 function ensureDefaultAdmin(db) {
-  if (!db.users.some((u) => u.username === 'shivam.jha')) {
+  if (!db.users.some((u) => normalizeUsername(u.username) === 'shivam.jha')) {
     db.users.push(withAudit({
       id: generateId('USR'),
       username: 'shivam.jha',
@@ -342,4 +352,10 @@ async function signInWithGoogle() {
     }
     throw err;
   }
+}
+
+async function consumeGoogleRedirectResult() {
+  bootFirebase();
+  const result = await firebaseAuth.getRedirectResult();
+  return result?.user || null;
 }
