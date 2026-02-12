@@ -58,77 +58,34 @@ function applyRoleVisibility() {
 }
 
 function setupLogin() {
-  const loginForm = document.getElementById('loginForm');
-  const signupForm = document.getElementById('signupForm');
-  const msg = document.getElementById('authMessage');
-  const pwd = document.getElementById('password');
-  const showPwd = document.getElementById('showPasswordToggle');
+  const form = document.getElementById('loginForm');
+  if (!form) return;
 
-  if (showPwd && pwd) {
-    showPwd.addEventListener('change', () => {
-      pwd.type = showPwd.checked ? 'text' : 'password';
-    });
-  }
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    const user = getUser(username);
 
-  if (loginForm) {
-    loginForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const username = document.getElementById('username').value.trim();
-      const password = document.getElementById('password').value;
-      const user = getUser(username);
+    if (!user) {
+      requestAccess({ username, password, role: 'inspector', approved: false, request_date: new Date().toISOString().slice(0, 10), approved_by: '' });
+      alert('Access request submitted to admin.');
+      return;
+    }
 
-      if (!user) {
-        if (msg) msg.textContent = 'User not found. Please create account request.';
-        return;
-      }
+    if (user.password !== password) {
+      alert('Invalid password.');
+      return;
+    }
 
-      if (user.password !== password) {
-        if (msg) msg.textContent = 'Password is wrong.';
-        alert('Password is wrong.');
-        return;
-      }
+    if (!user.approved) {
+      alert('User not approved by admin yet.');
+      return;
+    }
 
-      if (!user.approved) {
-        if (msg) msg.textContent = 'Account pending admin approval.';
-        return;
-      }
-
-      localStorage.setItem(STORAGE_KEYS.sessionUser, username);
-      localStorage.setItem('username', username); // backward compatibility
-      window.location.assign('dashboard.html');
-    });
-  }
-
-  if (signupForm) {
-    signupForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const username = document.getElementById('newUsername').value.trim();
-      const password = document.getElementById('newPassword').value;
-      const role = document.getElementById('newRole').value;
-
-      if (!username || !password) {
-        if (msg) msg.textContent = 'Username and password are required for account request.';
-        return;
-      }
-
-      if (getUser(username)) {
-        if (msg) msg.textContent = 'User already exists. Please login.';
-        return;
-      }
-
-      requestAccess({
-        username,
-        password,
-        role,
-        approved: false,
-        request_date: new Date().toISOString().slice(0, 10),
-        approved_by: ''
-      });
-
-      if (msg) msg.textContent = 'Account request submitted. Ask admin to approve from Admin Panel.';
-      signupForm.reset();
-    });
-  }
+    localStorage.setItem(STORAGE_KEYS.sessionUser, username);
+    window.location.href = 'dashboard.html';
+  });
 }
 
 function normalizeInspectionPayload(payload) {
