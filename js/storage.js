@@ -1,7 +1,8 @@
 const STORAGE_KEYS = {
   sessionUser: 'atr2026_session_user',
   cloudConfig: 'atr2026_cloud_config',
-  syncStatus: 'atr2026_sync_status'
+  syncStatus: 'atr2026_sync_status',
+  localCache: 'atr2026_runtime_cache'
 };
 
 const FIREBASE_CONFIG = {
@@ -35,6 +36,7 @@ let syncInFlight = false;
 let syncPending = false;
 let suppressSync = false;
 let realtimeStarted = false;
+let authReadyPromise = null;
 
 function nowStamp() {
   return new Date().toISOString();
@@ -46,6 +48,10 @@ function generateId(prefix = 'REC') {
 
 function sanitizeName(value) {
   return String(value || 'entry').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40) || 'entry';
+}
+
+function normalizeUsername(username) {
+  return String(username || '').trim().toLowerCase();
 }
 
 function bootFirebase() {
@@ -60,6 +66,27 @@ function bootFirebase() {
 function runtimeDocRef() {
   bootFirebase();
   return firebaseDb.collection(RUNTIME_DOC_PATH.collection).doc(RUNTIME_DOC_PATH.id);
+}
+
+async function ensureFirebaseSession() {
+  bootFirebase();
+  if (firebaseAuth.currentUser) return firebaseAuth.currentUser;
+  if (authReadyPromise) return authReadyPromise;
+
+  authReadyPromise = (async () => {
+    try {
+      const result = await firebaseAuth.signInAnonymously();
+      setSyncStatus({ ok: true, message: 'Connected to Firebase cloud.' });
+      return result.user;
+    } catch (err) {
+      setSyncStatus({ ok: false, message: `Firebase auth failed: ${err.message}` });
+      throw err;
+    } finally {
+      authReadyPromise = null;
+    }
+  })();
+
+  return authReadyPromise;
 }
 
 function getSessionUser() {
@@ -97,10 +124,15 @@ function readDB() {
   return clone(runtimeDB);
 }
 
+function persistLocalCache() {
+  localStorage.setItem(STORAGE_KEYS.localCache, JSON.stringify(runtimeDB));
+}
+
 function saveDB(db) {
   runtimeDB = clone(db);
   runtimeDB._meta = runtimeDB._meta || {};
   runtimeDB._meta.last_updated = nowStamp();
+  persistLocalCache();
   if (!suppressSync) scheduleAutoSync();
 }
 
@@ -139,7 +171,7 @@ function deleteById(name, id) {
   saveCollection(name, rows);
 }
 
-async function uploadToCloudinary(fileName, dataUrl) {
+async function uploadToCloudinary(fileName, fileInput) {
   const cfg = getCloudConfig();
   if (!cfg.cloudinaryCloudName || !cfg.cloudinaryUploadPreset) {
     throw new Error('Cloudinary config missing. Fill Cloud Name and Upload Preset in Login > Cloud Sync Settings.');
@@ -147,7 +179,8 @@ async function uploadToCloudinary(fileName, dataUrl) {
 
   const endpoint = `https://api.cloudinary.com/v1_1/${cfg.cloudinaryCloudName}/image/upload`;
   const form = new FormData();
-  form.append('file', dataUrl);
+  if (fileInput instanceof Blob) form.append('file', fileInput);
+  else form.append('file', fileInput);
   form.append('upload_preset', cfg.cloudinaryUploadPreset);
   form.append('public_id', sanitizeName(fileName.replace(/\.[^.]+$/, '')));
 
@@ -157,8 +190,14 @@ async function uploadToCloudinary(fileName, dataUrl) {
   return body.secure_url;
 }
 
-async function saveImageDataAtPath(path, base64Data) {
-  const uploadedUrl = await uploadToCloudinary(path, base64Data);
+async function saveImageDataAtPath(path, base64DataOrBlob) {
+  let uploadedUrl = '';
+  try {
+    uploadedUrl = await uploadToCloudinary(path, base64DataOrBlob);
+  } catch (err) {
+    setSyncStatus({ ok: false, message: `Cloudinary upload failed: ${err.message}` });
+    throw err;
+  }
   const db = readDB();
   db.images[path] = uploadedUrl;
   saveDB(db);
@@ -177,24 +216,30 @@ function getImageData(path) {
 }
 
 function getUser(username) {
-  return getCollection('users').find((u) => u.username === username);
+  const normalized = normalizeUsername(username);
+  return getCollection('users').find((u) => normalizeUsername(u.username) === normalized);
 }
 
 function requestAccess(user) {
   const users = getCollection('users');
-  users.push(withAudit(user));
+  const normalizedUsername = normalizeUsername(user.username);
+  const existingIndex = users.findIndex((u) => normalizeUsername(u.username) === normalizedUsername);
+  const payload = withAudit({ ...user, username: normalizedUsername }, existingIndex >= 0);
+  if (existingIndex >= 0) users[existingIndex] = payload;
+  else users.push(payload);
   saveCollection('users', users);
 }
 
 function approveUser(username, approvedBy = 'shivam.jha') {
+  const normalizedUsername = normalizeUsername(username);
   const users = getCollection('users').map((u) => (
-    u.username === username ? withAudit({ ...u, approved: true, approved_by: approvedBy }, true) : u
+    normalizeUsername(u.username) === normalizedUsername ? withAudit({ ...u, approved: true, approved_by: approvedBy }, true) : u
   ));
   saveCollection('users', users);
 }
 
 function ensureDefaultAdmin(db) {
-  if (!db.users.some((u) => u.username === 'shivam.jha')) {
+  if (!db.users.some((u) => normalizeUsername(u.username) === 'shivam.jha')) {
     db.users.push(withAudit({
       id: generateId('USR'),
       username: 'shivam.jha',
@@ -212,6 +257,7 @@ function ensureRuntimeDefaults() {
   ensureDefaultAdmin(runtimeDB);
   runtimeDB._meta = runtimeDB._meta || {};
   runtimeDB._meta.last_updated = runtimeDB._meta.last_updated || nowStamp();
+  persistLocalCache();
 }
 
 ensureRuntimeDefaults();
@@ -240,33 +286,48 @@ function downloadTextFile(fileName, content) {
 }
 
 async function initializeData() {
-  ensureRuntimeDefaults();
+  const cached = localStorage.getItem(STORAGE_KEYS.localCache);
+  if (cached) {
+    try {
+      runtimeDB = clone({ ...DB_TEMPLATE, ...JSON.parse(cached) });
+      ensureRuntimeDefaults();
+    } catch (err) {
+      console.warn('Local cache parse failed:', err);
+    }
+  } else {
+    ensureRuntimeDefaults();
+  }
 
   try {
+    await ensureFirebaseSession();
     const ref = runtimeDocRef();
     const snap = await ref.get();
 
     if (snap.exists && snap.data()) {
       runtimeDB = clone({ ...DB_TEMPLATE, ...snap.data() });
       ensureRuntimeDefaults();
+      setSyncStatus({ ok: true, message: 'Loaded data from Firebase cloud.' });
       return;
     }
 
     await ref.set(buildDatabaseFilesPayload(), { merge: false });
+    setSyncStatus({ ok: true, message: 'Initialized Firebase cloud document.' });
   } catch (err) {
-    setSyncStatus({ ok: false, message: `Firebase init fallback: ${err.message}` });
+    setSyncStatus({ ok: false, message: `Firebase init fallback (local cache in use): ${err.message}` });
     ensureRuntimeDefaults();
   }
 }
 
 async function syncAllToCloud(config = getCloudConfig()) {
   if (!config.enabled) return;
+  await ensureFirebaseSession();
   await runtimeDocRef().set(buildDatabaseFilesPayload(), { merge: false });
-  setSyncStatus({ ok: true, message: 'Firebase sync success.' });
+  setSyncStatus({ ok: true, message: 'Saved to Firebase cloud successfully.' });
 }
 
 async function pullCloudToLocalIfNewer(config = getCloudConfig()) {
   if (!config.enabled) return;
+  await ensureFirebaseSession();
   const snap = await runtimeDocRef().get();
   if (!snap.exists || !snap.data()) return;
 
@@ -311,7 +372,8 @@ function startRealtimeSync() {
   const config = getCloudConfig();
   if (!config.enabled) return;
 
-  runtimeDocRef().onSnapshot((snap) => {
+  ensureFirebaseSession()
+    .then(() => runtimeDocRef().onSnapshot((snap) => {
     if (!snap.exists || !snap.data()) return;
     const remote = snap.data();
     const local = readDB();
@@ -326,20 +388,35 @@ function startRealtimeSync() {
     }
   }, (err) => {
     setSyncStatus({ ok: false, message: err.message || 'Realtime sync failed.' });
-  });
+  }))
+    .catch((err) => setSyncStatus({ ok: false, message: `Realtime setup failed: ${err.message}` }));
 }
 
 async function signInWithGoogle() {
   bootFirebase();
   const provider = new firebase.auth.GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  await firebaseAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+
   try {
     const result = await firebaseAuth.signInWithPopup(provider);
     return result?.user || null;
   } catch (err) {
-    if (err?.code === 'auth/popup-blocked' || err?.code === 'auth/cancelled-popup-request') {
+    if ([
+      'auth/popup-blocked',
+      'auth/cancelled-popup-request',
+      'auth/operation-not-supported-in-this-environment',
+      'auth/web-storage-unsupported'
+    ].includes(err?.code)) {
       await firebaseAuth.signInWithRedirect(provider);
       return null;
     }
     throw err;
   }
+}
+
+async function consumeGoogleRedirectResult() {
+  bootFirebase();
+  const result = await firebaseAuth.getRedirectResult();
+  return result?.user || null;
 }

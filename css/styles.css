@@ -147,3 +147,23 @@ th { color: var(--muted); }
 .auth-panel { margin-bottom: 0.75rem; }
 .cloud-pill { margin: 0.6rem 0; padding:0.55rem 0.7rem; border:1px solid var(--border); border-radius:8px; background: var(--panel-2); color: var(--muted); font-size:0.9rem; }
 .auth-message { min-height: 1.2rem; }
+
+.sync-status-banner {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--card-border, #334155);
+  background: rgba(15, 23, 42, 0.4);
+  color: #cbd5e1;
+  font-size: 0.9rem;
+}
+
+.sync-status-banner.ok {
+  border-color: #22c55e;
+  color: #bbf7d0;
+}
+
+.sync-status-banner.error {
+  border-color: #ef4444;
+  color: #fecaca;
+}

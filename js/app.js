@@ -116,6 +116,35 @@ function setupLogin() {
   // Always-on cloud sync config (embedded as requested)
   setCloudConfig({ enabled: true, cloudinaryCloudName: 'dhlmqtton', cloudinaryUploadPreset: 'ATR-2026-I' });
 
+  async function completeGoogleLogin(gUser) {
+    if (!gUser) return;
+    if (!gUser.email) throw new Error('Google sign-in did not return an email.');
+
+    const username = gUser.email.trim().toLowerCase();
+    let user = getUser(username);
+    if (!user) {
+      requestAccess({
+        id: generateId('USR'),
+        username,
+        password: 'google-auth',
+        role: 'inspector',
+        approved: false,
+        request_date: new Date().toISOString().slice(0, 10),
+        approved_by: ''
+      });
+      user = getUser(username);
+    }
+
+    if (!user?.approved) {
+      if (msg) msg.textContent = 'Google account captured. Pending admin approval.';
+      return;
+    }
+
+    localStorage.setItem(STORAGE_KEYS.sessionUser, username);
+    localStorage.setItem('username', username);
+    window.location.assign('dashboard.html');
+  }
+
   function setActiveTab(tab) {
     if (!signInTabBtn || !createAccountTabBtn || !signInPanel || !createAccountPanel) return;
     const signInActive = tab === 'signin';
@@ -145,32 +174,7 @@ function setupLogin() {
     googleSignInBtn.addEventListener('click', async () => {
       try {
         const gUser = await signInWithGoogle();
-        if (!gUser) return;
-        if (!gUser.email) throw new Error('Google sign-in did not return an email.');
-
-        const username = gUser.email.toLowerCase();
-        let user = getUser(username);
-        if (!user) {
-          requestAccess({
-            id: generateId('USR'),
-            username,
-            password: 'google-auth',
-            role: 'inspector',
-            approved: false,
-            request_date: new Date().toISOString().slice(0, 10),
-            approved_by: ''
-          });
-          user = getUser(username);
-        }
-
-        if (!user?.approved) {
-          if (msg) msg.textContent = 'Google account captured. Pending admin approval.';
-          return;
-        }
-
-        localStorage.setItem(STORAGE_KEYS.sessionUser, username);
-        localStorage.setItem('username', username);
-        window.location.assign('dashboard.html');
+        await completeGoogleLogin(gUser);
       } catch (err) {
         if (msg) msg.textContent = err.message || 'Google sign-in failed.';
       }
@@ -181,7 +185,7 @@ function setupLogin() {
     loginForm.addEventListener('submit', (e) => {
       e.preventDefault();
 
-      const username = document.getElementById('username').value.trim();
+      const username = document.getElementById('username').value.trim().toLowerCase();
       const password = document.getElementById('password').value;
       const user = getUser(username);
 
@@ -210,7 +214,7 @@ function setupLogin() {
     signupForm.addEventListener('submit', (e) => {
       e.preventDefault();
 
-      const username = document.getElementById('newUsername').value.trim();
+      const username = document.getElementById('newUsername').value.trim().toLowerCase();
       const password = document.getElementById('newPassword').value;
       const role = document.getElementById('newRole').value;
 
@@ -238,6 +242,12 @@ function setupLogin() {
       setActiveTab('signin');
     });
   }
+
+  consumeGoogleRedirectResult()
+    .then((gUser) => completeGoogleLogin(gUser))
+    .catch((err) => {
+      if (msg && err?.code !== 'auth/no-auth-event') msg.textContent = err.message || 'Google redirect sign-in failed.';
+    });
 }
 
 function normalizeInspectionPayload(payload) {
@@ -397,6 +407,7 @@ function setupInspectionPage() {
     });
     upsertById('inspections', payload, 'INSP');
     closeForm();
+    if (typeof setSyncStatus === 'function') setSyncStatus({ ok: true, message: 'Inspection saved successfully.' });
     renderInspectionList();
   });
 
@@ -429,12 +440,7 @@ async function filesToPaths(fileList, observationId, tagNo) {
     const ext = (file.name.split('.').pop() || 'bin').toLowerCase();
     const standardizedName = `${safeTag}_${observationId}_${String(idx).padStart(2, '0')}.${ext}`;
     const imagePath = `data/images/${standardizedName}`;
-    const data = await new Promise((resolve) => {
-      const fr = new FileReader();
-      fr.onload = (e) => resolve(e.target.result);
-      fr.readAsDataURL(file);
-    });
-    const uploadedUrl = await saveImageDataAtPath(imagePath, data);
+    const uploadedUrl = await saveImageDataAtPath(imagePath, file);
     paths.push(uploadedUrl || imagePath);
     idx += 1;
   }
@@ -515,23 +521,29 @@ function setupObservationPage() {
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const observationId = generateId('OBS');
-    const tagNo = document.getElementById('obsTag').value;
-    const imagePaths = await filesToPaths(imageInput.files || [], observationId, tagNo);
-    upsertById('observations', {
-      id: observationId,
-      tag_number: tagNo,
-      unit: document.getElementById('obsUnit').value,
-      location: document.getElementById('obsLocation').value,
-      observation: document.getElementById('obsObservation').value,
-      recommendation: document.getElementById('obsRecommendation').value,
-      status: document.getElementById('obsStatus').value,
-      images: imagePaths
-    }, 'OBS');
-    form.reset();
-    preview.innerHTML = '';
-    panel.classList.add('hidden');
-    render();
+    try {
+      const observationId = generateId('OBS');
+      const tagNo = document.getElementById('obsTag').value;
+      const imagePaths = await filesToPaths(imageInput.files || [], observationId, tagNo);
+      upsertById('observations', {
+        id: observationId,
+        tag_number: tagNo,
+        unit: document.getElementById('obsUnit').value,
+        location: document.getElementById('obsLocation').value,
+        observation: document.getElementById('obsObservation').value,
+        recommendation: document.getElementById('obsRecommendation').value,
+        status: document.getElementById('obsStatus').value,
+        images: imagePaths
+      }, 'OBS');
+      form.reset();
+      preview.innerHTML = '';
+      panel.classList.add('hidden');
+      if (typeof setSyncStatus === 'function') setSyncStatus({ ok: true, message: 'Observation and images saved to cloud.' });
+      render();
+    } catch (err) {
+      if (typeof setSyncStatus === 'function') setSyncStatus({ ok: false, message: err.message || 'Failed to save observation.' });
+      alert(err.message || 'Failed to save observation.');
+    }
   });
 
   render();
@@ -618,6 +630,7 @@ function setupRequisitionPage() {
       remarks: document.getElementById('reqRemarks').value
     }, 'REQ');
     formPanel.classList.add('hidden');
+    if (typeof setSyncStatus === 'function') setSyncStatus({ ok: true, message: 'Requisition saved successfully.' });
     render();
   });
 
@@ -634,7 +647,14 @@ function setupAdminPanel() {
 
   function renderUsers() {
     const users = getCollection('users');
-    tbody.innerHTML = users.map((u) => `<tr>
+    const filterValue = document.getElementById('adminUserFilter')?.value || 'all';
+    const filteredUsers = users.filter((u) => {
+      if (filterValue === 'pending') return !u.approved;
+      if (filterValue === 'approved') return !!u.approved;
+      return true;
+    });
+
+    tbody.innerHTML = filteredUsers.map((u) => `<tr>
       <td>${u.username}</td><td>${u.role}</td><td>${u.request_date || '-'}</td><td>${u.approved ? 'Approved' : 'Pending'}</td>
       <td>${u.approved ? '-' : `<button class="btn approve-user" data-user="${u.username}" type="button">Approve</button>`}</td>
     </tr>`).join('');
@@ -697,6 +717,8 @@ function setupAdminPanel() {
   }
 
   document.getElementById('downloadTemplateBtn').onclick = downloadTemplate;
+  const userFilter = document.getElementById('adminUserFilter');
+  if (userFilter) userFilter.onchange = renderUsers;
   document.getElementById('bulkUploadBtn').onclick = () => {
     const file = document.getElementById('bulkUploadFile').files[0];
     if (!file) return;
@@ -718,6 +740,37 @@ function setupAdminPanel() {
   if (syncBtn) syncBtn.onclick = () => syncNow().catch((err) => { message.textContent = err.message; });
 
   renderUsers();
+}
+
+
+function setupSyncStatusUI() {
+  const existing = document.getElementById('syncStatusBanner');
+  if (existing) return;
+  const container = document.querySelector('.content') || document.querySelector('.landing-card') || document.body;
+  if (!container) return;
+
+  const banner = document.createElement('div');
+  banner.id = 'syncStatusBanner';
+  banner.className = 'sync-status-banner';
+  banner.textContent = 'Cloud sync ready.';
+  container.insertBefore(banner, container.firstChild);
+
+  const raw = localStorage.getItem(STORAGE_KEYS.syncStatus);
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      banner.textContent = parsed.message || banner.textContent;
+      banner.classList.toggle('ok', parsed.ok !== false);
+      banner.classList.toggle('error', parsed.ok === false);
+    } catch (_) {}
+  }
+
+  window.addEventListener('atr-sync-status', (evt) => {
+    const ok = evt.detail?.ok !== false;
+    banner.textContent = evt.detail?.message || (ok ? 'Cloud sync success.' : 'Cloud sync failed.');
+    banner.classList.toggle('ok', ok);
+    banner.classList.toggle('error', !ok);
+  });
 }
 
 function setupDashboard() {
@@ -749,6 +802,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     console.error('startRealtimeSync failed:', err);
   }
 
+  setupSyncStatusUI();
   injectCommonFooter();
   if (!requireAuth()) return;
   setHeaderUser();
