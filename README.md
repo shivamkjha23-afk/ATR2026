@@ -4,6 +4,7 @@ Static GitHub Pages-ready web app (HTML/CSS/Vanilla JS) using Firebase Firestore
 
 ## Login / Authentication
 
+- Login page uses modern tabbed flow: **Sign In** and **Create Account**.
 - Login requires **User ID + Password**.
 - Users are stored in Firebase Firestore (`atr2026/runtime.users`).
 - Admin can approve new requested users.
@@ -48,10 +49,10 @@ This project now uses **Firebase Firestore + Cloudinary**:
 6. In Cloudinary:
    - Create an **unsigned upload preset**.
    - Copy `cloud name` and `upload preset`.
-7. In Login page → Cloud Sync Settings:
-   - Cloudinary Cloud Name
-   - Cloudinary Upload Preset
-   - Enable automatic Firebase sync
+7. Cloud sync is pre-configured in app code:
+   - Cloudinary cloud name: `dhlmqtton`
+   - Cloudinary upload preset: `ATR-2026-I`
+   - Firebase auto-sync: enabled by default
 8. Use Google Sign-in (or existing local login). Admin can approve first-time Google users.
 
 ### Suggested Firestore security rules
