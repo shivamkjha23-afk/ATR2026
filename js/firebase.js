@@ -4,7 +4,7 @@ import { getAuth } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth
 import { getStorage } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js';
 
 // TODO: replace with your project values from Firebase Console.
-onst firebaseConfig = {
+const firebaseConfig = {
   apiKey: "AIzaSyDam8Q5xWNT5J7AfagEVWcC7TzT2LN8OHU",
   authDomain: "atr2026-6541f.firebaseapp.com",
   projectId: "atr2026-6541f",
