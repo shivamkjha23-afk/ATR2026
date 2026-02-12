@@ -2,21 +2,19 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.23.0/firebas
 import { getFirestore } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js';
 import { getAuth } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js';
 import { getStorage } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js';
-import { firebaseConfig as fileConfig } from './firebase-config.js';
 
-const runtimeConfig = window.__FIREBASE_CONFIG__ || fileConfig;
+// TODO: replace with your project values from Firebase Console.
+const firebaseConfig = {
+  apiKey: "AIzaSyDam8Q5xWNT5J7AfagEVWcC7TzT2LN8OHU",
+  authDomain: "atr2026-6541f.firebaseapp.com",
+  projectId: "atr2026-6541f",
+  storageBucket: "atr2026-6541f.firebasestorage.app",
+  messagingSenderId: "121442875078",
+  appId: "1:121442875078:web:741b5ffc315843352149c7",
+  measurementId: "G-8JY365XQXP"
+};
 
-function hasPlaceholder(cfg) {
-  return Object.values(cfg).some((value) => String(value).includes('YOUR_'));
-}
-
-if (!runtimeConfig || hasPlaceholder(runtimeConfig)) {
-  throw new Error(
-    'Firebase config missing. Update js/firebase-config.js with your real project keys from Firebase console.'
-  );
-}
-
-const app = initializeApp(runtimeConfig);
+const app = initializeApp(firebaseConfig);
 
 export const db = getFirestore(app);
 export const auth = getAuth(app);
