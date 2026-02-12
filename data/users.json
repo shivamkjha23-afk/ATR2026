@@ -1,6 +1,7 @@
 [
   {
     "username": "shivam.jha",
+    "password": "admin@123",
     "role": "admin",
     "approved": true,
     "request_date": "2025-12-01",
@@ -8,9 +9,11 @@
   },
   {
     "username": "inspector.pata",
+    "password": "pass@123",
     "role": "inspector",
-    "approved": false,
+    "approved": true,
     "request_date": "2026-01-05",
-    "approved_by": ""
+    "approved_by": "shivam.jha"
   }
 ]
+
