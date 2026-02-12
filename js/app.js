@@ -731,21 +731,10 @@ function setupDashboard() {
 
 window.addEventListener('DOMContentLoaded', async () => {
   applyTheme();
+  await initializeData();
   setupThemeToggle();
   setupLogin();
-
-  try {
-    await initializeData();
-  } catch (err) {
-    console.error('initializeData failed:', err);
-  }
-
-  try {
-    startRealtimeSync();
-  } catch (err) {
-    console.error('startRealtimeSync failed:', err);
-  }
-
+  startRealtimeSync();
   injectCommonFooter();
   if (!requireAuth()) return;
   setHeaderUser();

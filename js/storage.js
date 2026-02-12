@@ -207,16 +207,6 @@ function ensureDefaultAdmin(db) {
   }
 }
 
-function ensureRuntimeDefaults() {
-  runtimeDB = clone({ ...DB_TEMPLATE, ...runtimeDB });
-  ensureDefaultAdmin(runtimeDB);
-  runtimeDB._meta = runtimeDB._meta || {};
-  runtimeDB._meta.last_updated = runtimeDB._meta.last_updated || nowStamp();
-}
-
-ensureRuntimeDefaults();
-
-
 function buildDatabaseFilesPayload() {
   const db = readDB();
   return {
@@ -240,23 +230,19 @@ function downloadTextFile(fileName, content) {
 }
 
 async function initializeData() {
-  ensureRuntimeDefaults();
+  const ref = runtimeDocRef();
+  const snap = await ref.get();
 
-  try {
-    const ref = runtimeDocRef();
-    const snap = await ref.get();
-
-    if (snap.exists && snap.data()) {
-      runtimeDB = clone({ ...DB_TEMPLATE, ...snap.data() });
-      ensureRuntimeDefaults();
-      return;
-    }
-
-    await ref.set(buildDatabaseFilesPayload(), { merge: false });
-  } catch (err) {
-    setSyncStatus({ ok: false, message: `Firebase init fallback: ${err.message}` });
-    ensureRuntimeDefaults();
+  if (snap.exists && snap.data()) {
+    runtimeDB = clone({ ...DB_TEMPLATE, ...snap.data() });
+    return;
   }
+
+  const seeded = structuredClone(DB_TEMPLATE);
+  ensureDefaultAdmin(seeded);
+  seeded._meta.last_updated = nowStamp();
+  runtimeDB = clone(seeded);
+  await ref.set(runtimeDB, { merge: false });
 }
 
 async function syncAllToCloud(config = getCloudConfig()) {
