@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Panel | ATR-2026 Tracker</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body data-page="admin">
+  <div class="app-shell">
+    <aside class="sidebar">
+      <h2>ATR-2026</h2>
+      <nav>
+        <a class="nav-link" href="dashboard.html">Dashboard</a>
+        <a class="nav-link" href="inspection.html">Update Inspection</a>
+        <a class="nav-link" href="observation.html">Observation Entry</a>
+        <a class="nav-link" href="requisition.html">Requisition</a>
+        <a class="nav-link active admin-only" href="admin.html">Admin Panel</a>
+      </nav>
+    </aside>
+
+    <section class="content">
+      <header class="header">
+        <h1>ATR-2026 Shutdown Tracker</h1>
+        <div class="header-right">
+          <p>Logged in as: <span id="loggedInUser">WindowsUser</span></p>
+          <button id="themeToggleBtn" class="btn" type="button">Toggle Theme</button>
+        </div>
+      </header>
+
+      <main class="admin-grid">
+        <section class="table-card">
+          <h2>Pending Access Requests</h2>
+          <div class="list-actions">
+            <label>User Filter
+              <select id="adminUserFilter">
+                <option value="all">All</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+              </select>
+            </label>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Username</th>
+                  <th>Role</th>
+                  <th>Request Date</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="pendingUsersBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="form-card">
+          <h3>Bulk Upload Data (Excel)</h3>
+          <p class="hint">For inspections: existing `id` updates record, blank `id` creates a new record.</p>
+
+          <label>Upload Type (Dropdown)
+            <select id="uploadTypeSelect">
+              <option value="inspections">Inspections</option>
+              <option value="users">Users</option>
+            </select>
+          </label>
+
+          <label>Default Unit for Blank Rows (Inspections)
+            <select id="defaultUploadUnit">
+              <option value="">No Default</option>
+              <option>GCU-1</option><option>GCU-2</option><option>GPU-1</option><option>GPU-2</option>
+              <option>HDPE-1</option><option>HDPE-2</option><option>LLDPE-1</option><option>LLDPE-2</option>
+              <option>PP-1</option><option>PP-2</option><option>LPG</option><option>SPHERE</option>
+              <option>YARD</option><option>FLAKER-1</option><option>BOG</option><option>IOP</option>
+            </select>
+          </label>
+
+          <div class="actions">
+            <button class="btn" id="downloadTemplateBtn" type="button">Download Excel Template</button>
+          </div>
+          <input type="file" id="bulkUploadFile" accept=".xlsx,.xls" />
+          <button class="btn btn-primary" id="bulkUploadBtn" type="button">Upload Excel Data</button>
+          <p id="bulkUploadMessage"></p>
+        </section>
+
+
+
+        <section class="form-card">
+          <h3>Central Database Sync (Firebase)</h3>
+          <p class="hint">Use Firebase Firestore as central cloud backend. Runtime database is synced as one shared document in real time.</p>
+          <div class="actions">
+            <button class="btn" id="exportAllDataBtn" type="button">Download Runtime JSON Backup</button>
+            <button class="btn btn-primary" id="syncGithubBtn" type="button">Sync All Data to Firebase Now</button>
+          </div>
+          <p class="hint">Enable Firebase sync from Login page Cloud Sync Settings. Configure Cloudinary there for image uploads.</p>
+        </section>
+
+        <section class="form-card">
+          <h3>Database Path Settings</h3>
+          <label>Firestore Collection
+            <input type="text" value="atr2026" readonly />
+          </label>
+          <label>Firestore Document
+            <input type="text" value="runtime" readonly />
+          </label>
+          <p class="hint">Cloudinary image links are stored under the <code>images</code> field in this runtime document.</p>
+        </section>
+      </main>
+    </section>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
