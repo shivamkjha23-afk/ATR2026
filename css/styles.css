@@ -129,3 +129,6 @@ th { color: var(--muted); }
 .status-yellow { background: #854d0e !important; color: #fff !important; }
 .status-green { background: #166534 !important; color: #fff !important; }
 .clickable-img { cursor: zoom-in; }
+
+.inline-check { display: flex; align-items: center; gap: 0.5rem; margin: 0.4rem 0 1rem; }
+.inline-check input { width: auto; margin: 0; }
