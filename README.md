@@ -1,29 +1,106 @@
-# ATR2026 Shutdown Inspection Tracker (Full Web - Firebase + Cloudinary)
+# ATR2026 Shutdown Inspection Tracker
 
-This project now supports a full web experience close to the earlier version with cloud backend:
+This repository contains a **fresh full frontend codebase** (no migration/delete steps required) for your ATR2026 web app.
 
-- Firebase Authentication (Email/Password + Google Sign-In)
-- Firestore realtime collections (separate tables)
-- Cloudinary image uploads (instead of Firebase Storage)
-- Admin bulk Excel upload for Inspection Updates
-- Light/Dark theme toggle across pages
+- Frontend: Vanilla JS + HTML/CSS
+- Auth & DB: Firebase Authentication + Firestore
+- Image hosting: Cloudinary
+- Realtime updates: Firestore `onSnapshot`
+- Deploy target: GitHub Pages (static site)
 
-## Pages
-- `login.html`
-- `dashboard.html`
-- `inspection.html`
-- `observation.html`
-- `requisition.html`
-- `admin.html` (admin only)
+---
 
-## Firebase setup
+## File structure (final code)
 
-1. Create Firebase project and register web app.
-2. Enable Authentication providers:
-   - Email/Password
-   - Google
-3. Enable Firestore database.
-4. Paste config in `js/firebase-config.js`.
+```text
+/
+├─ index.html
+├─ login.html
+├─ dashboard.html
+├─ inspection.html
+├─ observation.html
+├─ requisition.html
+├─ admin.html
+├─ css/
+│  └─ styles.css
+└─ js/
+   ├─ firebase-config.js
+   ├─ firebase.js
+   ├─ cloudinary-config.js
+   ├─ constants.js
+   ├─ auth.js
+   ├─ commonPage.js
+   ├─ login.js
+   ├─ dashboardMain.js
+   ├─ inspectionService.js
+   ├─ firestoreService.js
+   ├─ storageService.js
+   ├─ inspectionMain.js
+   ├─ observationMain.js
+   ├─ requisitionMain.js
+   └─ adminMain.js
+```
+
+---
+
+## Features included
+
+### Authentication
+- Email/password login
+- Create account
+- Google login (popup)
+- Protected pages redirect to login when unauthenticated
+
+### Inspection module
+- Add/Edit/Delete inspection records
+- Firestore realtime table updates
+- Proper dropdowns for unit/equipment/status/final status
+- Status workflow includes:
+  - Scaffolding Prepared
+  - Manhole Opened
+  - NDT in Progress
+  - Insulation Removed
+  - Manhole Box-up
+  - Completed
+
+### Observation module
+- Add/Edit/Delete observation records
+- Upload image to Cloudinary **or** paste OneDrive URL
+- Realtime updates from Firestore
+
+### Requisition module
+- Add/Edit/Delete requisitions
+- Realtime updates from Firestore
+- Dropdown options restored (type/unit/size/result)
+
+### Dashboard
+- KPI cards
+- Vessel / Pipeline / Steam Trap charts
+- Unit comparison chart
+- Daily progress chart
+- Realtime auto-refresh from Firestore
+
+### Admin module
+- Admin-only access
+- Download inspection Excel template
+- Bulk upload inspection records from Excel
+
+### UI/UX
+- Sidebar navigation (same style flow as earlier)
+- Light/Dark theme toggle on all major pages
+- Admin menu shown only for admin emails
+
+---
+
+## Firebase setup (required)
+
+## 1) Create Firebase project
+1. Open Firebase Console.
+2. Create project.
+3. Add Web app.
+4. Copy web config values.
+
+## 2) Update `js/firebase-config.js`
 
 ```js
 export const firebaseConfig = {
@@ -36,24 +113,15 @@ export const firebaseConfig = {
 };
 ```
 
-## Cloudinary setup (image upload)
+## 3) Enable Firebase Authentication
+Enable these providers:
+- Email/Password
+- Google
 
-1. Create Cloudinary account.
-2. Create unsigned upload preset.
-3. Update `js/cloudinary-config.js`:
+Also ensure your GitHub Pages domain is in **Authorized domains**.
 
-```js
-export const cloudinaryConfig = {
-  cloudName: 'YOUR_CLOUD_NAME',
-  uploadPreset: 'YOUR_UNSIGNED_UPLOAD_PRESET'
-};
-```
-
-Observation image flow:
-- upload file => Cloudinary URL saved in Firestore
-- or paste OneDrive/cloud URL directly
-
-## Firestore collections and fields
+## 4) Enable Firestore Database
+Create database and use these collections:
 
 ### `inspection_updates`
 - unit_name
@@ -96,13 +164,27 @@ Observation image flow:
 - timestamp
 - enteredBy
 
-## Admin bulk Excel upload
+---
 
-`admin.html` includes:
-- Download Excel template for inspection fields
-- Upload `.xlsx/.xls` and insert bulk rows to Firestore
+## Cloudinary setup (required for image upload)
 
-Template column headers:
+## 1) Create Cloudinary account
+## 2) Create unsigned upload preset
+## 3) Update `js/cloudinary-config.js`
+
+```js
+export const cloudinaryConfig = {
+  cloudName: 'YOUR_CLOUD_NAME',
+  uploadPreset: 'YOUR_UNSIGNED_UPLOAD_PRESET'
+};
+```
+
+---
+
+## Admin bulk Excel template columns
+
+Upload file must include these headers:
+
 - unit_name
 - equipment_type
 - equipment_tag_number
@@ -117,13 +199,7 @@ Template column headers:
 - observation
 - recommendation
 
-## UI improvements included
-- Separate Login and Create Account sections on login page
-- Google login button
-- Dropdowns restored for unit/type/status where needed
-- Theme toggle restored on all main pages
-- Separate tables/pages for inspection/observation/requisition
-- Realtime dashboard charts with daily + unit comparison
+---
 
 ## Run locally
 
@@ -131,4 +207,15 @@ Template column headers:
 python3 -m http.server 4173 --directory /workspace/ATR2026
 ```
 
-Open `http://127.0.0.1:4173/login.html`
+Open:
+- `http://127.0.0.1:4173/login.html`
+
+---
+
+## Deploy to GitHub Pages
+
+1. Push repository to GitHub.
+2. Open repository settings → Pages.
+3. Deploy from branch (`main`, root).
+4. Open published URL.
+
