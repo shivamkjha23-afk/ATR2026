@@ -1,6 +1,45 @@
 const UNIT_OPTIONS = ['GCU-1', 'GCU-2', 'GPU-1', 'GPU-2', 'HDPE-1', 'HDPE-2', 'LLDPE-1', 'LLDPE-2', 'PP-1', 'PP-2', 'LPG', 'SPHERE', 'YARD', 'FLAKER-1', 'BOG', 'IOP'];
 const EQUIPMENT_TYPES = ['Pipeline', 'Vessel', 'Exchanger', 'Steam Trap', 'Tank'];
-const INSPECTION_STATUS_OPTIONS = ['Scaffolding Prepared', 'Manhole Opened', 'NDT in Progress', 'Insulation Removed', 'Manhole Box-up'];
+const INSPECTION_STATUS_OPTIONS = ['','Scaffolding Prepared', 'Manhole Opened', 'NDT in Progress', 'Insulation Removed', 'Manhole Box-up'];
+
+
+function buildQuickActions() {
+  const pages = [
+    { href: 'dashboard.html', label: 'Dashboard' },
+    { href: 'inspection.html', label: 'Inspection' },
+    { href: 'observation.html', label: 'Observation' },
+    { href: 'requisition.html', label: 'Requisition' },
+    { href: 'admin.html', label: 'Admin', adminOnly: true }
+  ];
+
+  const wrap = document.createElement('div');
+  wrap.className = 'quick-actions';
+  pages.forEach((p) => {
+    if (p.adminOnly && !isAdmin()) return;
+    const a = document.createElement('a');
+    a.href = p.href;
+    a.className = 'btn quick-btn';
+    a.textContent = p.label;
+    wrap.appendChild(a);
+  });
+  return wrap;
+}
+
+function injectCommonFooter() {
+  if (document.querySelector('.site-footer')) return;
+  const footer = document.createElement('footer');
+  footer.className = 'site-footer';
+  footer.textContent = '© ATR-2026 Shutdown Inspection Tracker — Designed by Inspection Department';
+  document.body.appendChild(footer);
+}
+
+function injectQuickActions() {
+  if (document.body.dataset.page === 'login') return;
+  const content = document.querySelector('.content');
+  if (!content || content.querySelector('.quick-actions')) return;
+  content.insertBefore(buildQuickActions(), content.firstChild.nextSibling);
+}
+
 
 function getLoggedInUser() {
   return localStorage.getItem(STORAGE_KEYS.sessionUser) || 'WindowsUser';
@@ -58,34 +97,112 @@ function applyRoleVisibility() {
 }
 
 function setupLogin() {
-  const form = document.getElementById('loginForm');
-  if (!form) return;
+  const loginForm = document.getElementById('loginForm');
+  const signupForm = document.getElementById('signupForm');
+  const msg = document.getElementById('authMessage');
+  const pwd = document.getElementById('password');
+  const showPwd = document.getElementById('showPasswordToggle');
 
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const username = document.getElementById('username').value.trim();
-    const password = document.getElementById('password').value;
-    const user = getUser(username);
+  const syncOwner = document.getElementById('syncOwner');
+  const syncRepo = document.getElementById('syncRepo');
+  const syncBranch = document.getElementById('syncBranch');
+  const syncToken = document.getElementById('syncToken');
+  const syncEnabled = document.getElementById('syncEnabled');
 
-    if (!user) {
-      requestAccess({ username, password, role: 'inspector', approved: false, request_date: new Date().toISOString().slice(0, 10), approved_by: '' });
-      alert('Access request submitted to admin.');
-      return;
-    }
+  function applySyncConfigFromForm() {
+    if (!syncEnabled) return;
+    setSyncConfig({
+      enabled: syncEnabled.checked,
+      owner: syncOwner?.value || '',
+      repo: syncRepo?.value || '',
+      branch: syncBranch?.value || 'main',
+      token: syncToken?.value || ''
+    });
+  }
 
-    if (user.password !== password) {
-      alert('Invalid password.');
-      return;
-    }
+  const config = getSyncConfig();
+  if (syncOwner) syncOwner.value = config.owner || '';
+  if (syncRepo) syncRepo.value = config.repo || '';
+  if (syncBranch) syncBranch.value = config.branch || 'main';
+  if (syncEnabled) syncEnabled.checked = Boolean(config.enabled);
 
-    if (!user.approved) {
-      alert('User not approved by admin yet.');
-      return;
-    }
+  if (showPwd && pwd) {
+    showPwd.addEventListener('change', () => {
+      pwd.type = showPwd.checked ? 'text' : 'password';
+    });
+  }
 
-    localStorage.setItem(STORAGE_KEYS.sessionUser, username);
-    window.location.href = 'dashboard.html';
+  [syncOwner, syncRepo, syncBranch, syncToken, syncEnabled].forEach((el) => {
+    if (!el) return;
+    el.addEventListener('change', applySyncConfigFromForm);
+    el.addEventListener('input', () => {
+      if (el === syncToken) applySyncConfigFromForm();
+    });
   });
+
+  if (loginForm) {
+    loginForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      applySyncConfigFromForm();
+
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      const user = getUser(username);
+
+      if (!user) {
+        if (msg) msg.textContent = 'User not found. Please create account request.';
+        return;
+      }
+
+      if (user.password !== password) {
+        if (msg) msg.textContent = 'Password is wrong.';
+        alert('Password is wrong.');
+        return;
+      }
+
+      if (!user.approved) {
+        if (msg) msg.textContent = 'Account pending admin approval.';
+        return;
+      }
+
+      localStorage.setItem(STORAGE_KEYS.sessionUser, username);
+      localStorage.setItem('username', username);
+      window.location.assign('dashboard.html');
+    });
+  }
+
+  if (signupForm) {
+    signupForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      applySyncConfigFromForm();
+
+      const username = document.getElementById('newUsername').value.trim();
+      const password = document.getElementById('newPassword').value;
+      const role = document.getElementById('newRole').value;
+
+      if (!username || !password) {
+        if (msg) msg.textContent = 'Username and password are required for account request.';
+        return;
+      }
+
+      if (getUser(username)) {
+        if (msg) msg.textContent = 'User already exists. Please login.';
+        return;
+      }
+
+      requestAccess({
+        username,
+        password,
+        role,
+        approved: false,
+        request_date: new Date().toISOString().slice(0, 10),
+        approved_by: ''
+      });
+
+      if (msg) msg.textContent = 'Account request submitted. Ask admin to approve from Admin Panel.';
+      signupForm.reset();
+    });
+  }
 }
 
 function normalizeInspectionPayload(payload) {
@@ -269,15 +386,22 @@ function setupInspectionPage() {
   renderInspectionList();
 }
 
-async function filesToPaths(fileList) {
+async function filesToPaths(fileList, observationId, tagNo) {
   const paths = [];
+  const safeTag = sanitizeName(tagNo || 'tag');
+  let idx = 1;
   for (const file of Array.from(fileList)) {
+    const ext = (file.name.split('.').pop() || 'bin').toLowerCase();
+    const standardizedName = `${safeTag}_${observationId}_${String(idx).padStart(2, '0')}.${ext}`;
+    const imagePath = `data/images/${standardizedName}`;
     const data = await new Promise((resolve) => {
       const fr = new FileReader();
       fr.onload = (e) => resolve(e.target.result);
       fr.readAsDataURL(file);
     });
-    paths.push(saveImageData(file.name, data));
+    saveImageDataAtPath(imagePath, data);
+    paths.push(imagePath);
+    idx += 1;
   }
   return paths;
 }
@@ -356,9 +480,12 @@ function setupObservationPage() {
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const imagePaths = await filesToPaths(imageInput.files || []);
+    const observationId = generateId('OBS');
+    const tagNo = document.getElementById('obsTag').value;
+    const imagePaths = await filesToPaths(imageInput.files || [], observationId, tagNo);
     upsertById('observations', {
-      tag_number: document.getElementById('obsTag').value,
+      id: observationId,
+      tag_number: tagNo,
       unit: document.getElementById('obsUnit').value,
       location: document.getElementById('obsLocation').value,
       observation: document.getElementById('obsObservation').value,
@@ -523,6 +650,41 @@ function setupAdminPanel() {
     XLSX.writeFile(wb, 'ATR2026_Inspection_Template.xlsx');
   }
 
+  async function exportAllRuntimeData() {
+    const files = buildDatabaseFilesPayload();
+    Object.entries(files).forEach(([path, content]) => {
+      if (content.startsWith('data:')) return;
+      downloadTextFile(path, content);
+    });
+    message.textContent = 'Local runtime JSON snapshots downloaded. Use GitHub Sync for central repository update.';
+  }
+
+  async function syncToGitHub() {
+    const owner = document.getElementById('ghOwner').value.trim();
+    const repo = document.getElementById('ghRepo').value.trim();
+    const branch = document.getElementById('ghBranch').value.trim() || 'main';
+    const token = document.getElementById('ghToken').value.trim();
+
+    if (!owner || !repo || !token) {
+      message.textContent = 'Enter GitHub owner, repo, and token to sync central data files.';
+      return;
+    }
+
+    const files = buildDatabaseFilesPayload();
+    let count = 0;
+    for (const [path, content] of Object.entries(files)) {
+      let base64 = '';
+      if (content.startsWith('data:')) {
+        base64 = content.split(',')[1] || '';
+      } else {
+        base64 = toBase64Utf8(content);
+      }
+      await githubUpsertFile({ owner, repo, branch, token, path, contentBase64: base64, message: `sync ${path}` });
+      count += 1;
+    }
+    message.textContent = `Central GitHub sync complete: ${count} files updated in ${owner}/${repo}@${branch}.`;
+  }
+
   document.getElementById('downloadTemplateBtn').onclick = downloadTemplate;
   document.getElementById('bulkUploadBtn').onclick = () => {
     const file = document.getElementById('bulkUploadFile').files[0];
@@ -538,6 +700,11 @@ function setupAdminPanel() {
     };
     fr.readAsArrayBuffer(file);
   };
+
+  const exportBtn = document.getElementById('exportAllDataBtn');
+  if (exportBtn) exportBtn.onclick = exportAllRuntimeData;
+  const syncBtn = document.getElementById('syncGithubBtn');
+  if (syncBtn) syncBtn.onclick = () => syncToGitHub().catch((err) => { message.textContent = err.message; });
 
   renderUsers();
 }
@@ -559,9 +726,12 @@ window.addEventListener('DOMContentLoaded', async () => {
   await initializeData();
   setupThemeToggle();
   setupLogin();
+  injectCommonFooter();
   if (!requireAuth()) return;
   setHeaderUser();
   applyRoleVisibility();
+  injectQuickActions();
+  injectCommonFooter();
   setupInspectionPage();
   setupObservationPage();
   setupRequisitionPage();
