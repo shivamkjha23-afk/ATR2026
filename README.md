@@ -1,62 +1,86 @@
 # ATR-2026 Shutdown Inspection Tracker – PATA Plant
 
-Static industrial inspection tracker built with HTML, CSS, Vanilla JavaScript, and JSON data files.
+Static GitHub Pages-ready web app (HTML/CSS/Vanilla JS + JSON seed files + localStorage runtime DB).
 
-## Deploy on GitHub Pages
+## Login / Authentication
 
-1. Push this repository to GitHub with the app files in the repository root.
-2. In GitHub, open **Settings → Pages**.
-3. Under **Build and deployment**, select **Deploy from a branch**.
-4. Select the branch (for example `main`) and folder (`/` root).
-5. Save and wait for deployment.
-6. Open the published URL and start with `index.html`.
+- Login requires **User ID + Password**.
+- Users are loaded from `data/users.json`.
+- Admin can approve new requested users.
+- Every created/updated record stores:
+  - `entered_by`
+  - `timestamp`
+  - `updated_by`
 
-## How to edit JSON database
+Default admin:
+- User: `shivam.jha`
+- Password: `admin@123`
 
-### Inspections data
-- File: `data/inspections.json`
-- Each inspection object includes:
-  - `id`, `unit_name`, `equipment_type`, `equipment_tag_number`, `inspection_type`, `equipment_name`, `last_inspection_year`, `inspection_possible`, `inspection_date`, `status`, `final_status`, `remarks`, `observation`, `recommendation`, `updated_by`, `update_date`.
+## Data Model (central runtime DB)
 
-### Users data
-- File: `data/users.json`
-- Each user object includes:
-  - `username`, `role`, `approved`, `request_date`, `approved_by`.
+Runtime data is synchronized into one central browser DB object (`atr2026_db`) and seeded from:
 
-> Runtime updates are stored in browser `localStorage` for static hosting compatibility.
+- `data/inspections.json`
+- `data/observations.json`
+- `data/requisitions.json`
+- `data/users.json`
 
-## Admin workflow
+Images are stored as data records with path keys under:
+- `data/images/` (logical path stored in DB)
 
-1. Log in as `shivam.jha` from `index.html`.
-2. Open **Admin Panel**.
-3. Approve pending users using the **Approve** button.
-4. In admin **Upload Type (Dropdown)** choose `Inspections` or `Users`.
-5. Download the matching Excel format from **Download Excel Template**.
-6. Fill rows and upload the Excel:
-   - For inspections: existing `id` -> updates same record; blank `id` -> adds new equipment.
-   - For users: existing `username` -> updates user; new `username` -> adds user.
-7. Optional: choose **Default Unit for Blank Rows** so missing unit values are auto-filled during inspection upload.
+## Admin Excel Upload Rules
 
-## Inspection workflow
+From **Admin Panel**:
+- Download template from **Download Excel Template**.
+- Choose upload type (`Inspections` or `Users`).
 
-- Filter by unit from top dropdown.
-- Filter by equipment type tabs (Pipeline, Vessel, Exchanger, Steam Trap, Tank).
-- Unit-wise equipment panels are shown separately.
-- Search by equipment tag.
-- Open edit form from row **Edit** action.
-- Select one, many, or full-unit rows and use **Mark Selected Completed**.
-- Use **Add Equipment** to open the entry form only when needed.
+Inspections upload rule:
+- If Excel row `id` exists in DB => update that record.
+- If `id` is blank => new record created with system-generated unique ID.
 
-## Observation workflow
-
-- Use **Add New Observation** to open form on demand.
-- Attach multiple images.
-- Save and view past observations in table.
-- Draft email in Outlook-compatible `mailto` format.
-- Generate PDF report from observation details.
+Users upload rule:
+- Upsert by `username`.
 
 ## Modules
 
-- `js/storage.js` – JSON loading/saving and data operations.
-- `js/dashboard.js` – progress calculations and Chart.js rendering.
-- `js/app.js` – theme toggle, role checks, inspection workflow, observation workflow, and admin Excel upload.
+### Update Inspection
+- Unit filter, equipment-type tabs, tag search.
+- Unit-wise list panels.
+- Row edit opens hidden form.
+- Add Equipment button opens hidden form.
+- Multi-select and mark selected completed.
+- Inspection status dropdown includes:
+  - Scaffolding Prepared
+  - Manhole Opened
+  - NDT in Progress
+  - Insulation Removed
+  - Manhole Box-up
+
+### Observation
+- List view + Add New form.
+- Multiple images upload.
+- Image preview in table (click to open).
+- Status dropdown color coded:
+  - Not Started (Red)
+  - In Progress (Yellow)
+  - Completed (Green)
+- Draft Email button pre-fills observation details and image paths.
+
+### Requisition (RT / SR / DPT)
+- Form fields include tag, job details, unit, size, datetime, result, remarks.
+- If result = `Reshoot`, `Status 2` becomes available.
+- Requisition table supports edit.
+- Delete is admin-only.
+
+### Dashboard
+- Unit comparison chart.
+- Vessel / Pipeline / Steam Trap summaries.
+- Click on unit comparison chart for equipment drill-down.
+
+## Deploy on GitHub Pages
+
+1. Push repository to GitHub.
+2. Open **Settings → Pages**.
+3. Choose **Deploy from branch**.
+4. Select branch + root (`/`).
+5. Open published URL.
