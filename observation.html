@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Observation Entry | ATR-2026 Tracker</title>
+  <title>Observation | ATR-2026</title>
   <link rel="stylesheet" href="css/styles.css" />
 </head>
-<body data-page="observation">
+<body>
   <div class="app-shell">
     <aside class="sidebar">
       <h2>ATR-2026</h2>
@@ -15,63 +15,55 @@
         <a class="nav-link" href="inspection.html">Update Inspection</a>
         <a class="nav-link active" href="observation.html">Observation Entry</a>
         <a class="nav-link" href="requisition.html">Requisition</a>
-        <a class="nav-link admin-only" href="admin.html">Admin Panel</a>
       </nav>
     </aside>
+
     <section class="content">
       <header class="header">
-        <h1>ATR-2026 Shutdown Tracker</h1>
+        <h1>Observations</h1>
         <div class="header-right">
-          <p>Logged in as: <span id="loggedInUser">WindowsUser</span></p>
-          <button id="themeToggleBtn" class="btn" type="button">Toggle Theme</button>
+          <p>Logged in as: <span id="loggedInUser"></span></p>
+          <button id="logoutBtn" class="btn" type="button">Logout</button>
         </div>
       </header>
 
       <main>
         <section class="table-card">
           <div class="list-actions">
-            <h2>Observation List</h2>
-            <button class="btn btn-primary" id="openObservationFormBtn" type="button">Add New Observation</button>
+            <button class="btn btn-primary" id="openObservationFormBtn" type="button">Add Observation</button>
           </div>
           <div class="table-wrap">
             <table>
               <thead>
-                <tr>
-                  <th>Tag</th><th>Unit</th><th>Location</th><th>Observation</th><th>Recommendation</th><th>Status</th><th>Image</th><th>Actions</th>
-                </tr>
+                <tr><th>Tag</th><th>Description</th><th>Location</th><th>Unit</th><th>Status</th><th>Image</th><th>Action</th></tr>
               </thead>
-              <tbody id="observationsTableBody"></tbody>
+              <tbody id="observationTableBody"></tbody>
             </table>
           </div>
         </section>
 
         <section class="form-card hidden" id="observationFormPanel">
-          <h2>Add Observation</h2>
+          <h2>Observation Form</h2>
           <form id="observationForm" class="form-grid">
-            <label>Tag Number <input type="text" id="obsTag" required /></label>
-            <label>Unit <input type="text" id="obsUnit" required /></label>
-            <label>Location <input type="text" id="obsLocation" required /></label>
+            <label>Tag<input name="tag" required /></label>
+            <label>Description<input name="description" required /></label>
+            <label>Location<input name="location" required /></label>
+            <label>Unit<input name="unit" required /></label>
             <label>Status
-              <select id="obsStatus">
-                <option>Not Started</option>
-                <option>In Progress</option>
-                <option>Completed</option>
-              </select>
+              <select name="status"><option>Not Started</option><option>In Progress</option><option>Completed</option></select>
             </label>
-            <label class="full-width">Observation <textarea id="obsObservation" required></textarea></label>
-            <label class="full-width">Recommendation <textarea id="obsRecommendation" required></textarea></label>
-            <label class="full-width">Image Uploads <input type="file" id="obsImage" accept="image/*" multiple /></label>
-            <div class="multi-preview full-width" id="imagePreviewList"></div>
+            <label>Image File<input id="observationImage" type="file" accept="image/*" /></label>
+            <label class="full-width">Cloud/OneDrive URL<input name="imageUrl" type="url" /></label>
             <div class="actions full-width">
               <button class="btn btn-primary" type="submit">Save</button>
-              <button class="btn" id="closeObservationFormBtn" type="button">Close Form</button>
+              <button class="btn" id="closeObservationFormBtn" type="button">Close</button>
             </div>
           </form>
         </section>
       </main>
     </section>
   </div>
-  <script src="js/storage.js"></script>
-  <script src="js/app.js"></script>
+
+  <script type="module" src="js/observationMain.js"></script>
 </body>
 </html>

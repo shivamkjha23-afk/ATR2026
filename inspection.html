@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Inspection Update | ATR-2026 Tracker</title>
+  <title>Inspection Update | ATR-2026</title>
   <link rel="stylesheet" href="css/styles.css" />
 </head>
-<body data-page="inspection">
+<body>
   <div class="app-shell">
     <aside class="sidebar">
       <h2>ATR-2026</h2>
@@ -15,101 +15,65 @@
         <a class="nav-link active" href="inspection.html">Update Inspection</a>
         <a class="nav-link" href="observation.html">Observation Entry</a>
         <a class="nav-link" href="requisition.html">Requisition</a>
-        <a class="nav-link admin-only" href="admin.html">Admin Panel</a>
       </nav>
     </aside>
 
     <section class="content">
       <header class="header">
-        <h1>ATR-2026 Shutdown Tracker</h1>
+        <h1>Inspection Updates</h1>
         <div class="header-right">
-          <p>Logged in as: <span id="loggedInUser">WindowsUser</span></p>
-          <button id="themeToggleBtn" class="btn" type="button">Toggle Theme</button>
+          <p>Logged in as: <span id="loggedInUser"></span></p>
+          <button id="logoutBtn" class="btn" type="button">Logout</button>
         </div>
       </header>
 
       <main>
         <section class="table-card">
           <div class="list-actions">
-            <label>Filter Unit
-              <select id="unitFilter"></select>
-            </label>
-            <label>Search Tag
-              <input type="text" id="tagSearch" placeholder="Enter equipment tag" />
-            </label>
-            <button class="btn btn-primary" type="button" id="openAddEquipmentBtn">Add Equipment</button>
-            <button class="btn" type="button" id="markSelectedCompletedBtn">Mark Selected Completed</button>
+            <button class="btn btn-primary" id="openAddEquipmentBtn" type="button">Add Equipment</button>
           </div>
-
-          <div class="filter-tabs" id="equipmentTypeTabs"></div>
-
-          <div id="unitWiseLists" class="unit-lists"></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Unit</th><th>Type</th><th>Tag</th><th>Status</th><th>Final</th><th>Date</th><th>Action</th></tr>
+              </thead>
+              <tbody id="inspectionTableBody"></tbody>
+            </table>
+          </div>
         </section>
 
         <section class="form-card hidden" id="inspectionFormPanel">
-          <h2 id="inspectionFormTitle">Add Equipment</h2>
+          <h2>Inspection Form</h2>
           <form id="inspectionForm" class="form-grid">
-            <label>ID
-              <input type="number" id="id" />
-            </label>
-            <label>Equipment Tag Number
-              <input type="text" id="equipment_tag_number" required />
-            </label>
-            <label>Unit
-              <select id="unit_name" required>
-                <option value="">Select Unit</option>
-              </select>
-            </label>
-            <label>Equipment Type
-              <select id="equipment_type" required>
-                <option value="">Select Type</option>
-              </select>
-            </label>
-            <label>Inspection Type
-              <select id="inspection_type" required>
-                <option value="">Select Inspection Type</option>
-                <option>Planned</option>
-                <option>Opportunity Based</option>
-              </select>
-            </label>
-            <label>Equipment Name
-              <input type="text" id="equipment_name" required />
-            </label>
-            <label>Last Inspection Year
-              <input type="number" id="last_inspection_year" min="2000" max="2099" />
-            </label>
+            <label>Unit Name<input name="unit_name" required/></label>
+            <label>Equipment Type<input name="equipment_type" required/></label>
+            <label>Equipment Tag Number<input name="equipment_tag_number" required/></label>
+            <label>Inspection Type<input name="inspection_type" required/></label>
+            <label>Equipment Name<input name="equipment_name" required/></label>
+            <label>Last Inspection Year<input name="last_inspection_year"/></label>
             <label>Inspection Possible
-              <select id="inspection_possible">
-                <option>Yes</option>
-                <option>No</option>
-              </select>
+              <select name="inspection_possible"><option>Yes</option><option>No</option></select>
             </label>
-            <label>Inspection Date
-              <input type="date" id="inspection_date" />
-            </label>
-            <label>Inspection Status
-              <select id="status"></select>
-            </label>
-            <label>Final Status
-              <select id="final_status" required>
-                <option>Not Started</option>
-                <option>In Progress</option>
+            <label>Inspection Date<input type="date" name="inspection_date"/></label>
+            <label>Status
+              <select name="status">
+                <option>Scaffolding Prepared</option>
+                <option>Manhole Opened</option>
+                <option>NDT in Progress</option>
+                <option>Insulation Removed</option>
+                <option>Manhole Box-up</option>
                 <option>Completed</option>
               </select>
             </label>
-            <label class="full-width">Remarks
-              <textarea id="remarks"></textarea>
+            <label>Final Status
+              <select name="final_status"><option>Not Started</option><option>In Progress</option><option>Completed</option></select>
             </label>
-            <label class="full-width">Observation
-              <textarea id="observation"></textarea>
-            </label>
-            <label class="full-width">Recommendation
-              <textarea id="recommendation"></textarea>
-            </label>
+            <label class="full-width">Remarks<textarea name="remarks"></textarea></label>
+            <label class="full-width">Observation<textarea name="observation"></textarea></label>
+            <label class="full-width">Recommendation<textarea name="recommendation"></textarea></label>
             <div class="actions full-width">
-              <button class="btn btn-primary" type="submit">Save Update</button>
-              <button class="btn" type="button" id="markCompletedBtn">Mark Completed</button>
-              <button class="btn" type="button" id="closeInspectionFormBtn">Close Form</button>
+              <button class="btn btn-primary" type="submit">Save</button>
+              <button class="btn" id="closeInspectionFormBtn" type="button">Close</button>
             </div>
           </form>
         </section>
@@ -117,7 +81,6 @@
     </section>
   </div>
 
-  <script src="js/storage.js"></script>
-  <script src="js/app.js"></script>
+  <script type="module" src="js/inspectionMain.js"></script>
 </body>
 </html>
