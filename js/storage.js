@@ -1,6 +1,8 @@
 const STORAGE_KEYS = {
   db: 'atr2026_db',
-  sessionUser: 'atr2026_session_user'
+  sessionUser: 'atr2026_session_user',
+  syncConfig: 'atr2026_sync_config',
+  syncStatus: 'atr2026_sync_status'
 };
 
 const DB_TEMPLATE = {
@@ -10,6 +12,9 @@ const DB_TEMPLATE = {
   users: [],
   images: {}
 };
+
+let syncInFlight = false;
+let syncPending = false;
 
 async function loadJSON(path) {
   const response = await fetch(path);
@@ -29,8 +34,29 @@ function getSessionUser() {
   return localStorage.getItem(STORAGE_KEYS.sessionUser) || '';
 }
 
+function getSyncConfig() {
+  return JSON.parse(localStorage.getItem(STORAGE_KEYS.syncConfig) || '{"enabled":false}') || { enabled: false };
+}
+
+function setSyncConfig(config) {
+  const next = {
+    enabled: Boolean(config.enabled),
+    owner: (config.owner || '').trim(),
+    repo: (config.repo || '').trim(),
+    branch: (config.branch || 'main').trim() || 'main',
+    token: (config.token || '').trim()
+  };
+  localStorage.setItem(STORAGE_KEYS.syncConfig, JSON.stringify(next));
+}
+
+function setSyncStatus(status) {
+  localStorage.setItem(STORAGE_KEYS.syncStatus, JSON.stringify({ ...status, timestamp: nowStamp() }));
+  window.dispatchEvent(new CustomEvent('atr-sync-status', { detail: status }));
+}
+
 function saveDB(db) {
   localStorage.setItem(STORAGE_KEYS.db, JSON.stringify(db));
+  scheduleAutoSync();
 }
 
 function readDB() {
@@ -80,6 +106,13 @@ function saveImageData(fileName, base64Data) {
   return imagePath;
 }
 
+function saveImageDataAtPath(path, base64Data) {
+  const db = readDB();
+  db.images[path] = base64Data;
+  saveDB(db);
+  return path;
+}
+
 function getImageData(path) {
   return (readDB().images || {})[path] || '';
 }
@@ -117,4 +150,99 @@ async function initializeData() {
   db.observations = observations.map((o) => withAudit({ ...o, id: o.id || generateId('OBS') }));
   db.requisitions = requisitions.map((r) => withAudit({ ...r, id: r.id || generateId('REQ') }));
   saveDB(db);
+}
+
+function toBase64Utf8(str) {
+  return btoa(unescape(encodeURIComponent(str)));
+}
+
+function sanitizeName(value) {
+  return String(value || 'entry').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40) || 'entry';
+}
+
+function buildDatabaseFilesPayload() {
+  const db = readDB();
+  const files = {
+    'data/inspections.json': JSON.stringify(db.inspections || [], null, 2),
+    'data/users.json': JSON.stringify(db.users || [], null, 2),
+    'data/observations.json': JSON.stringify(db.observations || [], null, 2),
+    'data/requisitions.json': JSON.stringify(db.requisitions || [], null, 2)
+  };
+
+  Object.entries(db.images || {}).forEach(([path, dataUrl]) => {
+    files[path] = dataUrl;
+  });
+
+  return files;
+}
+
+function downloadTextFile(filePath, content) {
+  const blob = new Blob([content], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filePath.split('/').pop();
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+async function githubUpsertFile({ owner, repo, branch, token, path, contentBase64, message }) {
+  const headers = {
+    Accept: 'application/vnd.github+json',
+    Authorization: `Bearer ${token}`
+  };
+
+  let sha = '';
+  const getRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`, { headers });
+  if (getRes.ok) {
+    const existing = await getRes.json();
+    sha = existing.sha || '';
+  }
+
+  const putRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`, {
+    method: 'PUT',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, content: contentBase64, branch, ...(sha ? { sha } : {}) })
+  });
+
+  if (!putRes.ok) {
+    const err = await putRes.text();
+    throw new Error(`GitHub sync failed for ${path}: ${err}`);
+  }
+}
+
+async function syncAllToGitHub(config = getSyncConfig()) {
+  if (!config.enabled) return;
+  const { owner, repo, branch, token } = config;
+  if (!owner || !repo || !token) throw new Error('Missing GitHub sync configuration.');
+
+  const files = buildDatabaseFilesPayload();
+  let count = 0;
+  for (const [path, content] of Object.entries(files)) {
+    const contentBase64 = content.startsWith('data:') ? (content.split(',')[1] || '') : toBase64Utf8(content);
+    await githubUpsertFile({ owner, repo, branch, token, path, contentBase64, message: `auto-sync ${path}` });
+    count += 1;
+  }
+  setSyncStatus({ ok: true, message: `Auto sync success (${count} files)` });
+}
+
+function scheduleAutoSync() {
+  const config = getSyncConfig();
+  if (!config.enabled) return;
+
+  if (syncInFlight) {
+    syncPending = true;
+    return;
+  }
+
+  syncInFlight = true;
+  syncAllToGitHub(config)
+    .catch((err) => setSyncStatus({ ok: false, message: err.message }))
+    .finally(() => {
+      syncInFlight = false;
+      if (syncPending) {
+        syncPending = false;
+        scheduleAutoSync();
+      }
+    });
 }
