@@ -33,13 +33,9 @@ Images are stored as data records with path keys under:
 
 Because GitHub Pages is static, browser edits do not automatically write back to repository files.
 
-This project now includes cloud sync in two modes:
-- **Automatic sync on every submit/save/delete** from login settings (no admin action required after setup)
-- **Admin manual backup/sync tools** for controlled operations
-
-Providers:
-- Firebase Realtime Database (recommended for near real-time multi-user cloud updates)
-- GitHub contents API (repository JSON/image commits via token)
+This project now includes **Admin → Central Database Sync**:
+- **Download Runtime JSON Backup** (local safety export)
+- **Sync All Data to GitHub** (pushes updated `data/*.json` + `data/images/*` using GitHub API token)
 
 This resolves the issue where changes were only visible locally.
 

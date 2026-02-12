@@ -1,6 +1,6 @@
 const UNIT_OPTIONS = ['GCU-1', 'GCU-2', 'GPU-1', 'GPU-2', 'HDPE-1', 'HDPE-2', 'LLDPE-1', 'LLDPE-2', 'PP-1', 'PP-2', 'LPG', 'SPHERE', 'YARD', 'FLAKER-1', 'BOG', 'IOP'];
 const EQUIPMENT_TYPES = ['Pipeline', 'Vessel', 'Exchanger', 'Steam Trap', 'Tank'];
-const INSPECTION_STATUS_OPTIONS = ['Scaffolding Prepared', 'Manhole Opened', 'NDT in Progress', 'Insulation Removed', 'Manhole Box-up'];
+const INSPECTION_STATUS_OPTIONS = ['','Scaffolding Prepared', 'Manhole Opened', 'NDT in Progress', 'Insulation Removed', 'Manhole Box-up'];
 
 
 function buildQuickActions() {
@@ -103,9 +103,6 @@ function setupLogin() {
   const pwd = document.getElementById('password');
   const showPwd = document.getElementById('showPasswordToggle');
 
-  const syncProvider = document.getElementById('syncProvider');
-  const syncFirebaseUrl = document.getElementById('syncFirebaseUrl');
-  const syncFirebaseToken = document.getElementById('syncFirebaseToken');
   const syncOwner = document.getElementById('syncOwner');
   const syncRepo = document.getElementById('syncRepo');
   const syncBranch = document.getElementById('syncBranch');
@@ -116,9 +113,6 @@ function setupLogin() {
     if (!syncEnabled) return;
     setSyncConfig({
       enabled: syncEnabled.checked,
-      provider: syncProvider?.value || 'firebase',
-      firebaseUrl: syncFirebaseUrl?.value || '',
-      firebaseToken: syncFirebaseToken?.value || '',
       owner: syncOwner?.value || '',
       repo: syncRepo?.value || '',
       branch: syncBranch?.value || 'main',
@@ -127,9 +121,6 @@ function setupLogin() {
   }
 
   const config = getSyncConfig();
-  if (syncProvider) syncProvider.value = config.provider || 'firebase';
-  if (syncFirebaseUrl) syncFirebaseUrl.value = config.firebaseUrl || '';
-  if (syncFirebaseToken) syncFirebaseToken.value = config.firebaseToken || '';
   if (syncOwner) syncOwner.value = config.owner || '';
   if (syncRepo) syncRepo.value = config.repo || '';
   if (syncBranch) syncBranch.value = config.branch || 'main';
@@ -141,11 +132,11 @@ function setupLogin() {
     });
   }
 
-  [syncProvider, syncFirebaseUrl, syncFirebaseToken, syncOwner, syncRepo, syncBranch, syncToken, syncEnabled].forEach((el) => {
+  [syncOwner, syncRepo, syncBranch, syncToken, syncEnabled].forEach((el) => {
     if (!el) return;
     el.addEventListener('change', applySyncConfigFromForm);
     el.addEventListener('input', () => {
-      if (el === syncToken || el === syncFirebaseToken || el === syncFirebaseUrl) applySyncConfigFromForm();
+      if (el === syncToken) applySyncConfigFromForm();
     });
   });
 
@@ -735,7 +726,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   await initializeData();
   setupThemeToggle();
   setupLogin();
-  startRealtimeSync();
   injectCommonFooter();
   if (!requireAuth()) return;
   setHeaderUser();
@@ -747,8 +737,4 @@ window.addEventListener('DOMContentLoaded', async () => {
   setupRequisitionPage();
   setupAdminPanel();
   setupDashboard();
-
-  window.addEventListener('atr-db-updated', () => {
-    if (document.body.dataset.page !== 'login') window.location.reload();
-  });
 });

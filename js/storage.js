@@ -10,14 +10,11 @@ const DB_TEMPLATE = {
   observations: [],
   requisitions: [],
   users: [],
-  images: {},
-  _meta: { last_updated: '' }
+  images: {}
 };
 
 let syncInFlight = false;
 let syncPending = false;
-let suppressSync = false;
-let realtimeStarted = false;
 
 async function loadJSON(path) {
   const response = await fetch(path);
@@ -33,38 +30,21 @@ function nowStamp() {
   return new Date().toISOString();
 }
 
-function sanitizeName(value) {
-  return String(value || 'entry').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40) || 'entry';
-}
-
 function getSessionUser() {
   return localStorage.getItem(STORAGE_KEYS.sessionUser) || '';
 }
 
 function getSyncConfig() {
-  const config = JSON.parse(localStorage.getItem(STORAGE_KEYS.syncConfig) || '{}');
-  return {
-    enabled: Boolean(config.enabled),
-    provider: config.provider || 'firebase',
-    owner: config.owner || '',
-    repo: config.repo || '',
-    branch: config.branch || 'main',
-    token: config.token || '',
-    firebaseUrl: config.firebaseUrl || '',
-    firebaseToken: config.firebaseToken || ''
-  };
+  return JSON.parse(localStorage.getItem(STORAGE_KEYS.syncConfig) || '{"enabled":false}') || { enabled: false };
 }
 
 function setSyncConfig(config) {
   const next = {
     enabled: Boolean(config.enabled),
-    provider: config.provider || 'firebase',
     owner: (config.owner || '').trim(),
     repo: (config.repo || '').trim(),
     branch: (config.branch || 'main').trim() || 'main',
-    token: (config.token || '').trim(),
-    firebaseUrl: (config.firebaseUrl || '').trim(),
-    firebaseToken: (config.firebaseToken || '').trim()
+    token: (config.token || '').trim()
   };
   localStorage.setItem(STORAGE_KEYS.syncConfig, JSON.stringify(next));
 }
@@ -74,15 +54,13 @@ function setSyncStatus(status) {
   window.dispatchEvent(new CustomEvent('atr-sync-status', { detail: status }));
 }
 
-function readDB() {
-  return JSON.parse(localStorage.getItem(STORAGE_KEYS.db) || 'null') || structuredClone(DB_TEMPLATE);
+function saveDB(db) {
+  localStorage.setItem(STORAGE_KEYS.db, JSON.stringify(db));
+  scheduleAutoSync();
 }
 
-function saveDB(db) {
-  db._meta = db._meta || {};
-  db._meta.last_updated = nowStamp();
-  localStorage.setItem(STORAGE_KEYS.db, JSON.stringify(db));
-  if (!suppressSync) scheduleAutoSync();
+function readDB() {
+  return JSON.parse(localStorage.getItem(STORAGE_KEYS.db) || 'null') || structuredClone(DB_TEMPLATE);
 }
 
 function withAudit(record, isUpdate = false) {
@@ -107,8 +85,11 @@ function getCollection(name) {
 function upsertById(name, payload, prefix) {
   const rows = getCollection(name);
   const idx = rows.findIndex((r) => r.id === payload.id && payload.id);
-  if (idx >= 0) rows[idx] = withAudit({ ...rows[idx], ...payload, id: rows[idx].id }, true);
-  else rows.push(withAudit({ ...payload, id: payload.id || generateId(prefix) }));
+  if (idx >= 0) {
+    rows[idx] = withAudit({ ...rows[idx], ...payload, id: rows[idx].id }, true);
+  } else {
+    rows.push(withAudit({ ...payload, id: payload.id || generateId(prefix) }));
+  }
   saveCollection(name, rows);
 }
 
@@ -147,12 +128,15 @@ function requestAccess(user) {
 }
 
 function approveUser(username, approvedBy = 'shivam.jha') {
-  const users = getCollection('users').map((u) => (u.username === username ? withAudit({ ...u, approved: true, approved_by: approvedBy }, true) : u));
+  const users = getCollection('users').map((u) => (u.username === username
+    ? withAudit({ ...u, approved: true, approved_by: approvedBy }, true)
+    : u));
   saveCollection('users', users);
 }
 
 async function initializeData() {
   if (localStorage.getItem(STORAGE_KEYS.db)) return;
+
   const [inspections, users, observations, requisitions] = await Promise.all([
     loadJSON('./data/inspections.json'),
     loadJSON('./data/users.json'),
@@ -172,6 +156,10 @@ function toBase64Utf8(str) {
   return btoa(unescape(encodeURIComponent(str)));
 }
 
+function sanitizeName(value) {
+  return String(value || 'entry').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40) || 'entry';
+}
+
 function buildDatabaseFilesPayload() {
   const db = readDB();
   const files = {
@@ -180,7 +168,11 @@ function buildDatabaseFilesPayload() {
     'data/observations.json': JSON.stringify(db.observations || [], null, 2),
     'data/requisitions.json': JSON.stringify(db.requisitions || [], null, 2)
   };
-  Object.entries(db.images || {}).forEach(([path, dataUrl]) => { files[path] = dataUrl; });
+
+  Object.entries(db.images || {}).forEach(([path, dataUrl]) => {
+    files[path] = dataUrl;
+  });
+
   return files;
 }
 
@@ -195,7 +187,10 @@ function downloadTextFile(filePath, content) {
 }
 
 async function githubUpsertFile({ owner, repo, branch, token, path, contentBase64, message }) {
-  const headers = { Accept: 'application/vnd.github+json', Authorization: `Bearer ${token}` };
+  const headers = {
+    Accept: 'application/vnd.github+json',
+    Authorization: `Bearer ${token}`
+  };
 
   let sha = '';
   const getRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`, { headers });
@@ -216,60 +211,19 @@ async function githubUpsertFile({ owner, repo, branch, token, path, contentBase6
   }
 }
 
-function firebaseDbUrl(config) {
-  const root = (config.firebaseUrl || '').replace(/\/$/, '');
-  if (!root) return '';
-  const auth = config.firebaseToken ? `?auth=${encodeURIComponent(config.firebaseToken)}` : '';
-  return `${root}/atr2026_db.json${auth}`;
-}
-
-async function syncToFirebase(config) {
-  const url = firebaseDbUrl(config);
-  if (!url) throw new Error('Missing Firebase URL in sync settings.');
-  const db = readDB();
-  const res = await fetch(url, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(db)
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Firebase sync failed: ${err}`);
-  }
-}
-
-async function fetchFromFirebase(config) {
-  const url = firebaseDbUrl(config);
-  if (!url) return null;
-  const res = await fetch(url);
-  if (!res.ok) return null;
-  return res.json();
-}
-
-async function syncAllToCloud(config = getSyncConfig()) {
+async function syncAllToGitHub(config = getSyncConfig()) {
   if (!config.enabled) return;
+  const { owner, repo, branch, token } = config;
+  if (!owner || !repo || !token) throw new Error('Missing GitHub sync configuration.');
 
-  if (config.provider === 'github') {
-    const { owner, repo, branch, token } = config;
-    if (!owner || !repo || !token) throw new Error('Missing GitHub sync configuration.');
-    const files = buildDatabaseFilesPayload();
-    let count = 0;
-    for (const [path, content] of Object.entries(files)) {
-      const contentBase64 = content.startsWith('data:') ? (content.split(',')[1] || '') : toBase64Utf8(content);
-      await githubUpsertFile({ owner, repo, branch, token, path, contentBase64, message: `auto-sync ${path}` });
-      count += 1;
-    }
-    setSyncStatus({ ok: true, message: `GitHub auto-sync success (${count} files)` });
-    return;
+  const files = buildDatabaseFilesPayload();
+  let count = 0;
+  for (const [path, content] of Object.entries(files)) {
+    const contentBase64 = content.startsWith('data:') ? (content.split(',')[1] || '') : toBase64Utf8(content);
+    await githubUpsertFile({ owner, repo, branch, token, path, contentBase64, message: `auto-sync ${path}` });
+    count += 1;
   }
-
-  if (config.provider === 'firebase') {
-    await syncToFirebase(config);
-    setSyncStatus({ ok: true, message: 'Firebase auto-sync success' });
-    return;
-  }
-
-  throw new Error(`Unknown sync provider: ${config.provider}`);
+  setSyncStatus({ ok: true, message: `Auto sync success (${count} files)` });
 }
 
 function scheduleAutoSync() {
@@ -282,7 +236,7 @@ function scheduleAutoSync() {
   }
 
   syncInFlight = true;
-  syncAllToCloud(config)
+  syncAllToGitHub(config)
     .catch((err) => setSyncStatus({ ok: false, message: err.message }))
     .finally(() => {
       syncInFlight = false;
@@ -291,30 +245,4 @@ function scheduleAutoSync() {
         scheduleAutoSync();
       }
     });
-}
-
-async function pullCloudToLocalIfNewer(config = getSyncConfig()) {
-  if (!config.enabled || config.provider !== 'firebase') return;
-  const remote = await fetchFromFirebase(config);
-  if (!remote || !remote._meta) return;
-
-  const local = readDB();
-  const remoteTime = new Date(remote._meta.last_updated || 0).getTime();
-  const localTime = new Date(local._meta?.last_updated || 0).getTime();
-
-  if (remoteTime > localTime) {
-    suppressSync = true;
-    localStorage.setItem(STORAGE_KEYS.db, JSON.stringify(remote));
-    suppressSync = false;
-    window.dispatchEvent(new CustomEvent('atr-db-updated'));
-    setSyncStatus({ ok: true, message: 'Pulled newer cloud data from Firebase' });
-  }
-}
-
-function startRealtimeSync() {
-  if (realtimeStarted) return;
-  realtimeStarted = true;
-  const poll = () => pullCloudToLocalIfNewer().catch(() => {});
-  poll();
-  setInterval(poll, 12000);
 }

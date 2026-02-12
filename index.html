@@ -48,22 +48,8 @@
 
       
       <details>
-        <summary>Cloud Sync Settings (Recommended)</summary>
-        <label>Provider
-          <select id="syncProvider">
-            <option value="firebase">Firebase Realtime DB (Recommended)</option>
-            <option value="github">GitHub Repo Sync</option>
-          </select>
-        </label>
-
-        <label>Firebase Database URL
-          <input id="syncFirebaseUrl" type="text" placeholder="https://your-project-default-rtdb.firebaseio.com" />
-        </label>
-        <label>Firebase Auth Token (optional)
-          <input id="syncFirebaseToken" type="password" placeholder="database secret / auth token" />
-        </label>
-
-        <label>GitHub Owner
+        <summary>Auto GitHub Sync (Optional)</summary>
+        <label >GitHub Owner
           <input id="syncOwner" type="text" placeholder="owner" />
         </label>
         <label>Repository
@@ -72,12 +58,11 @@
         <label>Branch
           <input id="syncBranch" type="text" value="main" />
         </label>
-        <label>GitHub Token (repo contents write)
+        <label>Token (repo contents write)
           <input id="syncToken" type="password" placeholder="ghp_..." />
         </label>
-
         <label class="inline-check">
-          <input id="syncEnabled" type="checkbox" /> Enable automatic cloud sync on every submit/save/delete
+          <input id="syncEnabled" type="checkbox" /> Enable automatic sync on every submit/save
         </label>
       </details>
 
