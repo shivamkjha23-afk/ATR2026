@@ -102,25 +102,32 @@ function setupLogin() {
   const msg = document.getElementById('authMessage');
   const pwd = document.getElementById('password');
   const showPwd = document.getElementById('showPasswordToggle');
-
-  const cloudinaryCloudName = document.getElementById('cloudinaryCloudName');
-  const cloudinaryUploadPreset = document.getElementById('cloudinaryUploadPreset');
-  const syncEnabled = document.getElementById('syncEnabled');
+  const newPwd = document.getElementById('newPassword');
+  const showNewPwd = document.getElementById('showNewPasswordToggle');
   const googleSignInBtn = document.getElementById('googleSignInBtn');
 
-  function applySyncConfigFromForm() {
-    if (!syncEnabled) return;
-    setCloudConfig({
-      enabled: syncEnabled.checked,
-      cloudinaryCloudName: cloudinaryCloudName?.value || '',
-      cloudinaryUploadPreset: cloudinaryUploadPreset?.value || ''
-    });
+  const signInTabBtn = document.getElementById('signInTabBtn');
+  const createAccountTabBtn = document.getElementById('createAccountTabBtn');
+  const signInPanel = document.getElementById('signInPanel');
+  const createAccountPanel = document.getElementById('createAccountPanel');
+
+  if (!loginForm && !signupForm) return;
+
+  // Always-on cloud sync config (embedded as requested)
+  setCloudConfig({ enabled: true, cloudinaryCloudName: 'dhlmqtton', cloudinaryUploadPreset: 'ATR-2026-I' });
+
+  function setActiveTab(tab) {
+    if (!signInTabBtn || !createAccountTabBtn || !signInPanel || !createAccountPanel) return;
+    const signInActive = tab === 'signin';
+    signInTabBtn.classList.toggle('active', signInActive);
+    createAccountTabBtn.classList.toggle('active', !signInActive);
+    signInPanel.classList.toggle('hidden', !signInActive);
+    createAccountPanel.classList.toggle('hidden', signInActive);
+    if (msg) msg.textContent = '';
   }
 
-  const config = getCloudConfig();
-  if (cloudinaryCloudName) cloudinaryCloudName.value = config.cloudinaryCloudName || '';
-  if (cloudinaryUploadPreset) cloudinaryUploadPreset.value = config.cloudinaryUploadPreset || '';
-  if (syncEnabled) syncEnabled.checked = Boolean(config.enabled);
+  signInTabBtn?.addEventListener('click', () => setActiveTab('signin'));
+  createAccountTabBtn?.addEventListener('click', () => setActiveTab('create'));
 
   if (showPwd && pwd) {
     showPwd.addEventListener('change', () => {
@@ -128,20 +135,18 @@ function setupLogin() {
     });
   }
 
-  [cloudinaryCloudName, cloudinaryUploadPreset, syncEnabled].forEach((el) => {
-    if (!el) return;
-    el.addEventListener('change', applySyncConfigFromForm);
-    el.addEventListener('input', () => {
-      if (el === cloudinaryCloudName || el === cloudinaryUploadPreset) applySyncConfigFromForm();
+  if (showNewPwd && newPwd) {
+    showNewPwd.addEventListener('change', () => {
+      newPwd.type = showNewPwd.checked ? 'text' : 'password';
     });
-  });
+  }
 
   if (googleSignInBtn) {
     googleSignInBtn.addEventListener('click', async () => {
       try {
-        applySyncConfigFromForm();
         const gUser = await signInWithGoogle();
-        if (!gUser?.email) throw new Error('Google sign-in did not return an email.');
+        if (!gUser) return;
+        if (!gUser.email) throw new Error('Google sign-in did not return an email.');
 
         const username = gUser.email.toLowerCase();
         let user = getUser(username);
@@ -175,7 +180,6 @@ function setupLogin() {
   if (loginForm) {
     loginForm.addEventListener('submit', (e) => {
       e.preventDefault();
-      applySyncConfigFromForm();
 
       const username = document.getElementById('username').value.trim();
       const password = document.getElementById('password').value;
@@ -188,7 +192,6 @@ function setupLogin() {
 
       if (user.password !== password) {
         if (msg) msg.textContent = 'Password is wrong.';
-        alert('Password is wrong.');
         return;
       }
 
@@ -206,7 +209,6 @@ function setupLogin() {
   if (signupForm) {
     signupForm.addEventListener('submit', (e) => {
       e.preventDefault();
-      applySyncConfigFromForm();
 
       const username = document.getElementById('newUsername').value.trim();
       const password = document.getElementById('newPassword').value;
@@ -233,6 +235,7 @@ function setupLogin() {
 
       if (msg) msg.textContent = 'Account request submitted. Ask admin to approve from Admin Panel.';
       signupForm.reset();
+      setActiveTab('signin');
     });
   }
 }
@@ -731,10 +734,21 @@ function setupDashboard() {
 
 window.addEventListener('DOMContentLoaded', async () => {
   applyTheme();
-  await initializeData();
   setupThemeToggle();
   setupLogin();
-  startRealtimeSync();
+
+  try {
+    await initializeData();
+  } catch (err) {
+    console.error('initializeData failed:', err);
+  }
+
+  try {
+    startRealtimeSync();
+  } catch (err) {
+    console.error('startRealtimeSync failed:', err);
+  }
+
   injectCommonFooter();
   if (!requireAuth()) return;
   setHeaderUser();
