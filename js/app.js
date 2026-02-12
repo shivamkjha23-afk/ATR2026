@@ -103,23 +103,22 @@ function setupLogin() {
   const pwd = document.getElementById('password');
   const showPwd = document.getElementById('showPasswordToggle');
 
-  const cloudinaryCloudName = document.getElementById('cloudinaryCloudName');
-  const cloudinaryUploadPreset = document.getElementById('cloudinaryUploadPreset');
+  const syncJsonbinBinId = document.getElementById('syncJsonbinBinId');
+  const syncJsonbinApiKey = document.getElementById('syncJsonbinApiKey');
   const syncEnabled = document.getElementById('syncEnabled');
-  const googleSignInBtn = document.getElementById('googleSignInBtn');
 
   function applySyncConfigFromForm() {
     if (!syncEnabled) return;
     setCloudConfig({
       enabled: syncEnabled.checked,
-      cloudinaryCloudName: cloudinaryCloudName?.value || '',
-      cloudinaryUploadPreset: cloudinaryUploadPreset?.value || ''
+      jsonbinBinId: syncJsonbinBinId?.value || '',
+      jsonbinApiKey: syncJsonbinApiKey?.value || ''
     });
   }
 
   const config = getCloudConfig();
-  if (cloudinaryCloudName) cloudinaryCloudName.value = config.cloudinaryCloudName || '';
-  if (cloudinaryUploadPreset) cloudinaryUploadPreset.value = config.cloudinaryUploadPreset || '';
+  if (syncJsonbinBinId) syncJsonbinBinId.value = config.jsonbinBinId || '';
+  if (syncJsonbinApiKey) syncJsonbinApiKey.value = config.jsonbinApiKey || '';
   if (syncEnabled) syncEnabled.checked = Boolean(config.enabled);
 
   if (showPwd && pwd) {
@@ -128,49 +127,13 @@ function setupLogin() {
     });
   }
 
-  [cloudinaryCloudName, cloudinaryUploadPreset, syncEnabled].forEach((el) => {
+  [syncJsonbinBinId, syncJsonbinApiKey, syncEnabled].forEach((el) => {
     if (!el) return;
     el.addEventListener('change', applySyncConfigFromForm);
     el.addEventListener('input', () => {
-      if (el === cloudinaryCloudName || el === cloudinaryUploadPreset) applySyncConfigFromForm();
+      if (el === syncJsonbinApiKey || el === syncJsonbinBinId) applySyncConfigFromForm();
     });
   });
-
-  if (googleSignInBtn) {
-    googleSignInBtn.addEventListener('click', async () => {
-      try {
-        applySyncConfigFromForm();
-        const gUser = await signInWithGoogle();
-        if (!gUser?.email) throw new Error('Google sign-in did not return an email.');
-
-        const username = gUser.email.toLowerCase();
-        let user = getUser(username);
-        if (!user) {
-          requestAccess({
-            id: generateId('USR'),
-            username,
-            password: 'google-auth',
-            role: 'inspector',
-            approved: false,
-            request_date: new Date().toISOString().slice(0, 10),
-            approved_by: ''
-          });
-          user = getUser(username);
-        }
-
-        if (!user?.approved) {
-          if (msg) msg.textContent = 'Google account captured. Pending admin approval.';
-          return;
-        }
-
-        localStorage.setItem(STORAGE_KEYS.sessionUser, username);
-        localStorage.setItem('username', username);
-        window.location.assign('dashboard.html');
-      } catch (err) {
-        if (msg) msg.textContent = err.message || 'Google sign-in failed.';
-      }
-    });
-  }
 
   if (loginForm) {
     loginForm.addEventListener('submit', (e) => {
@@ -431,8 +394,8 @@ async function filesToPaths(fileList, observationId, tagNo) {
       fr.onload = (e) => resolve(e.target.result);
       fr.readAsDataURL(file);
     });
-    const uploadedUrl = await saveImageDataAtPath(imagePath, data);
-    paths.push(uploadedUrl || imagePath);
+    saveImageDataAtPath(imagePath, data);
+    paths.push(imagePath);
     idx += 1;
   }
   return paths;
@@ -685,12 +648,12 @@ function setupAdminPanel() {
   async function exportAllRuntimeData() {
     const snapshot = buildDatabaseFilesPayload();
     downloadTextFile('atr2026_runtime_backup.json', JSON.stringify(snapshot, null, 2));
-    message.textContent = 'Runtime JSON backup downloaded. Firebase auto-sync runs on each save/delete/submit.';
+    message.textContent = 'Runtime JSON backup downloaded. JSONBin auto-sync runs on each save/delete/submit.';
   }
 
   async function syncNow() {
     await syncAllToCloud();
-    message.textContent = 'Firebase sync complete.';
+    message.textContent = 'JSONBin sync complete.';
   }
 
   document.getElementById('downloadTemplateBtn').onclick = downloadTemplate;

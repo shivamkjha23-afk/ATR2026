@@ -5,16 +5,6 @@ const STORAGE_KEYS = {
   syncStatus: 'atr2026_sync_status'
 };
 
-const FIREBASE_CONFIG = {
-  apiKey: 'AIzaSyDam8Q5xWNT5J7AfagEVWcC7TzT2LN8OHU',
-  authDomain: 'atr2026-6541f.firebaseapp.com',
-  projectId: 'atr2026-6541f',
-  storageBucket: 'atr2026-6541f.firebasestorage.app',
-  messagingSenderId: '121442875078',
-  appId: '1:121442875078:web:741b5ffc315843352149c7',
-  measurementId: 'G-8JY365XQXP'
-};
-
 const DB_TEMPLATE = {
   inspections: [],
   observations: [],
@@ -28,34 +18,13 @@ let syncInFlight = false;
 let syncPending = false;
 let suppressSync = false;
 let realtimeStarted = false;
-let unsubscribeRealtime = null;
 
-let firebaseBooted = false;
-let firebaseApp = null;
-let firebaseAuth = null;
-let firebaseDb = null;
-
-function bootFirebase() {
-  if (firebaseBooted) return;
-  if (!window.firebase) throw new Error('Firebase SDK not loaded.');
-
-  firebaseApp = firebase.apps.length ? firebase.app() : firebase.initializeApp(FIREBASE_CONFIG);
-  firebaseAuth = firebase.auth();
-  firebaseDb = firebase.firestore();
-  firebaseBooted = true;
-}
-
-function runtimeDocRef() {
-  bootFirebase();
-  return firebaseDb.collection('atr2026').doc('runtime');
+function generateId(prefix = 'REC') {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function nowStamp() {
   return new Date().toISOString();
-}
-
-function generateId(prefix = 'REC') {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 function sanitizeName(value) {
@@ -70,16 +39,16 @@ function getCloudConfig() {
   const cfg = JSON.parse(localStorage.getItem(STORAGE_KEYS.cloudConfig) || '{}');
   return {
     enabled: Boolean(cfg.enabled),
-    cloudinaryCloudName: (cfg.cloudinaryCloudName || '').trim(),
-    cloudinaryUploadPreset: (cfg.cloudinaryUploadPreset || '').trim()
+    jsonbinBinId: (cfg.jsonbinBinId || '').trim(),
+    jsonbinApiKey: (cfg.jsonbinApiKey || '').trim()
   };
 }
 
 function setCloudConfig(config) {
   const next = {
     enabled: Boolean(config.enabled),
-    cloudinaryCloudName: (config.cloudinaryCloudName || '').trim(),
-    cloudinaryUploadPreset: (config.cloudinaryUploadPreset || '').trim()
+    jsonbinBinId: (config.jsonbinBinId || '').trim(),
+    jsonbinApiKey: (config.jsonbinApiKey || '').trim()
   };
   localStorage.setItem(STORAGE_KEYS.cloudConfig, JSON.stringify(next));
 }
@@ -132,41 +101,19 @@ function deleteById(name, id) {
   saveCollection(name, rows);
 }
 
-async function uploadToCloudinary(fileName, dataUrl) {
-  const cfg = getCloudConfig();
-  if (!cfg.cloudinaryCloudName || !cfg.cloudinaryUploadPreset) throw new Error('Cloudinary config missing. Fill Cloud Name and Upload Preset in Cloud Sync Settings.');
-  const endpoint = `https://api.cloudinary.com/v1_1/${cfg.cloudinaryCloudName}/image/upload`;
-  const form = new FormData();
-  form.append('file', dataUrl);
-  form.append('upload_preset', cfg.cloudinaryUploadPreset);
-  form.append('public_id', sanitizeName(fileName.replace(/\.[^.]+$/, '')));
-
-  const res = await fetch(endpoint, { method: 'POST', body: form });
-  const body = await res.json();
-  if (!res.ok || !body.secure_url) {
-    throw new Error(body.error?.message || 'Cloudinary upload failed.');
-  }
-  return body.secure_url;
-}
-
-async function saveImageDataAtPath(path, base64Data) {
-  const uploadedUrl = await uploadToCloudinary(path, base64Data);
+function saveImageDataAtPath(path, base64Data) {
   const db = readDB();
-  db.images[path] = uploadedUrl;
-  db.images[uploadedUrl] = uploadedUrl;
+  db.images[path] = base64Data;
   saveDB(db);
-  return uploadedUrl;
+  return path;
 }
 
-async function saveImageData(fileName, base64Data) {
-  return saveImageDataAtPath(`data/images/${generateId('IMG')}-${fileName}`, base64Data);
+function saveImageData(fileName, base64Data) {
+  return saveImageDataAtPath(`images/${generateId('IMG')}-${fileName}`, base64Data);
 }
 
 function getImageData(path) {
-  const fromDb = (readDB().images || {})[path];
-  if (fromDb) return fromDb;
-  if (/^https?:\/\//.test(path || '')) return path;
-  return '';
+  return (readDB().images || {})[path] || '';
 }
 
 function getUser(username) {
@@ -198,6 +145,14 @@ function ensureDefaultAdmin(db) {
   }
 }
 
+async function initializeData() {
+  const existing = readDB();
+  if (existing.users.length || existing.inspections.length || existing.observations.length || existing.requisitions.length) return;
+  const db = structuredClone(DB_TEMPLATE);
+  ensureDefaultAdmin(db);
+  saveDB(db);
+}
+
 function buildDatabaseFilesPayload() {
   const db = readDB();
   return {
@@ -220,52 +175,53 @@ function downloadTextFile(fileName, content) {
   a.remove();
 }
 
-async function initializeData() {
-  const local = readDB();
-  if (local.users.length || local.inspections.length || local.observations.length || local.requisitions.length) return;
-
-  const db = structuredClone(DB_TEMPLATE);
-  ensureDefaultAdmin(db);
-  suppressSync = true;
-  localStorage.setItem(STORAGE_KEYS.db, JSON.stringify(db));
-  suppressSync = false;
-
-  try {
-    const snap = await runtimeDocRef().get();
-    if (snap.exists && snap.data()) {
-      suppressSync = true;
-      localStorage.setItem(STORAGE_KEYS.db, JSON.stringify(snap.data()));
-      suppressSync = false;
-      return;
-    }
-  } catch (_e) {
-    setSyncStatus({ ok: false, message: 'Firebase read failed, using local cache.' });
-  }
-
-  saveDB(db);
+function jsonbinApiUrl(binId) {
+  return `https://api.jsonbin.io/v3/b/${binId}`;
 }
 
 async function syncAllToCloud(config = getCloudConfig()) {
   if (!config.enabled) return;
+  if (!config.jsonbinBinId || !config.jsonbinApiKey) throw new Error('Missing JSONBin Bin ID or API Key.');
+
   const payload = buildDatabaseFilesPayload();
-  await runtimeDocRef().set(payload, { merge: false });
-  setSyncStatus({ ok: true, message: 'Firebase sync success.' });
+  const res = await fetch(jsonbinApiUrl(config.jsonbinBinId), {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Master-Key': config.jsonbinApiKey,
+      'X-Bin-Versioning': 'false'
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`JSONBin sync failed: ${err}`);
+  }
+
+  setSyncStatus({ ok: true, message: 'JSONBin auto-sync success.' });
 }
 
 async function pullCloudToLocalIfNewer(config = getCloudConfig()) {
-  if (!config.enabled) return;
-  const snap = await runtimeDocRef().get();
-  if (!snap.exists || !snap.data()) return;
-  const remote = snap.data();
+  if (!config.enabled || !config.jsonbinBinId || !config.jsonbinApiKey) return;
+  const res = await fetch(`${jsonbinApiUrl(config.jsonbinBinId)}/latest`, {
+    headers: { 'X-Master-Key': config.jsonbinApiKey }
+  });
+  if (!res.ok) return;
+
+  const body = await res.json();
+  const remote = body.record || null;
+  if (!remote || !remote._meta) return;
+
   const local = readDB();
-  const remoteTime = new Date(remote._meta?.last_updated || 0).getTime();
+  const remoteTime = new Date(remote._meta.last_updated || 0).getTime();
   const localTime = new Date(local._meta?.last_updated || 0).getTime();
   if (remoteTime > localTime) {
     suppressSync = true;
     localStorage.setItem(STORAGE_KEYS.db, JSON.stringify(remote));
     suppressSync = false;
     window.dispatchEvent(new CustomEvent('atr-db-updated'));
-    setSyncStatus({ ok: true, message: 'Pulled latest data from Firebase.' });
+    setSyncStatus({ ok: true, message: 'Pulled latest data from JSONBin.' });
   }
 }
 
@@ -291,33 +247,7 @@ function scheduleAutoSync() {
 function startRealtimeSync() {
   if (realtimeStarted) return;
   realtimeStarted = true;
-
-  const config = getCloudConfig();
-  if (!config.enabled) return;
-
-  try {
-    const ref = runtimeDocRef();
-    unsubscribeRealtime = ref.onSnapshot((snap) => {
-      if (!snap.exists || !snap.data()) return;
-      const remote = snap.data();
-      const local = readDB();
-      const remoteTime = new Date(remote._meta?.last_updated || 0).getTime();
-      const localTime = new Date(local._meta?.last_updated || 0).getTime();
-      if (remoteTime > localTime) {
-        suppressSync = true;
-        localStorage.setItem(STORAGE_KEYS.db, JSON.stringify(remote));
-        suppressSync = false;
-        window.dispatchEvent(new CustomEvent('atr-db-updated'));
-      }
-    });
-  } catch (e) {
-    setSyncStatus({ ok: false, message: e.message || 'Realtime sync failed.' });
-  }
-}
-
-async function signInWithGoogle() {
-  bootFirebase();
-  const provider = new firebase.auth.GoogleAuthProvider();
-  const result = await firebaseAuth.signInWithPopup(provider);
-  return result?.user || null;
+  const poll = () => pullCloudToLocalIfNewer().catch(() => {});
+  poll();
+  setInterval(poll, 12000);
 }
