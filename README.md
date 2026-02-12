@@ -1,97 +1,134 @@
-# ATR-2026 Shutdown Inspection Tracker – PATA Plant
+# ATR2026 Shutdown Inspection Tracker (Full Web - Firebase + Cloudinary)
 
-Static GitHub Pages-ready web app (HTML/CSS/Vanilla JS + JSON seed files + localStorage runtime DB).
+This project now supports a full web experience close to the earlier version with cloud backend:
 
-## Login / Authentication
+- Firebase Authentication (Email/Password + Google Sign-In)
+- Firestore realtime collections (separate tables)
+- Cloudinary image uploads (instead of Firebase Storage)
+- Admin bulk Excel upload for Inspection Updates
+- Light/Dark theme toggle across pages
 
-- Login requires **User ID + Password**.
-- Users are loaded from `data/users.json`.
-- Admin can approve new requested users.
-- Every created/updated record stores:
-  - `entered_by`
-  - `timestamp`
-  - `updated_by`
+## Pages
+- `login.html`
+- `dashboard.html`
+- `inspection.html`
+- `observation.html`
+- `requisition.html`
+- `admin.html` (admin only)
 
-Default admin:
-- User: `shivam.jha`
-- Password: `admin@123`
+## Firebase setup
 
-## Data Model (central runtime DB)
+1. Create Firebase project and register web app.
+2. Enable Authentication providers:
+   - Email/Password
+   - Google
+3. Enable Firestore database.
+4. Paste config in `js/firebase-config.js`.
 
-Runtime data is synchronized into one central browser DB object (`atr2026_db`) and seeded from:
+```js
+export const firebaseConfig = {
+  apiKey: 'YOUR_API_KEY',
+  authDomain: 'YOUR_PROJECT.firebaseapp.com',
+  projectId: 'YOUR_PROJECT_ID',
+  storageBucket: 'YOUR_PROJECT.appspot.com',
+  messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
+  appId: 'YOUR_APP_ID'
+};
+```
 
-- `data/inspections.json`
-- `data/observations.json`
-- `data/requisitions.json`
-- `data/users.json`
+## Cloudinary setup (image upload)
 
-Images are stored as data records with path keys under:
-- `data/images/` (logical path stored in DB)
+1. Create Cloudinary account.
+2. Create unsigned upload preset.
+3. Update `js/cloudinary-config.js`:
 
+```js
+export const cloudinaryConfig = {
+  cloudName: 'YOUR_CLOUD_NAME',
+  uploadPreset: 'YOUR_UNSIGNED_UPLOAD_PRESET'
+};
+```
 
-## Central Storage Note (Important)
+Observation image flow:
+- upload file => Cloudinary URL saved in Firestore
+- or paste OneDrive/cloud URL directly
 
-Because GitHub Pages is static, browser edits do not automatically write back to repository files.
+## Firestore collections and fields
 
-This project now includes **Admin → Central Database Sync**:
-- **Download Runtime JSON Backup** (local safety export)
-- **Sync All Data to GitHub** (pushes updated `data/*.json` + `data/images/*` using GitHub API token)
+### `inspection_updates`
+- unit_name
+- equipment_type
+- equipment_tag_number
+- inspection_type
+- equipment_name
+- last_inspection_year
+- inspection_possible
+- inspection_date
+- status
+- final_status
+- remarks
+- observation
+- recommendation
+- updated_by
+- update_date
+- timestamp
 
-This resolves the issue where changes were only visible locally.
+### `observations`
+- tag
+- description
+- location
+- unit
+- status
+- imageUrl
+- enteredBy
+- timestamp
 
-## Admin Excel Upload Rules
+### `requisitions`
+- type
+- tagNo
+- jobDescription
+- location
+- unit
+- jobSize
+- result
+- status2
+- remarks
+- timestamp
+- enteredBy
 
-From **Admin Panel**:
-- Download template from **Download Excel Template**.
-- Choose upload type (`Inspections` or `Users`).
+## Admin bulk Excel upload
 
-Inspections upload rule:
-- If Excel row `id` exists in DB => update that record.
-- If `id` is blank => new record created with system-generated unique ID.
+`admin.html` includes:
+- Download Excel template for inspection fields
+- Upload `.xlsx/.xls` and insert bulk rows to Firestore
 
-Users upload rule:
-- Upsert by `username`.
+Template column headers:
+- unit_name
+- equipment_type
+- equipment_tag_number
+- inspection_type
+- equipment_name
+- last_inspection_year
+- inspection_possible
+- inspection_date
+- status
+- final_status
+- remarks
+- observation
+- recommendation
 
-## Modules
+## UI improvements included
+- Separate Login and Create Account sections on login page
+- Google login button
+- Dropdowns restored for unit/type/status where needed
+- Theme toggle restored on all main pages
+- Separate tables/pages for inspection/observation/requisition
+- Realtime dashboard charts with daily + unit comparison
 
-### Update Inspection
-- Unit filter, equipment-type tabs, tag search.
-- Unit-wise list panels.
-- Row edit opens hidden form.
-- Add Equipment button opens hidden form.
-- Multi-select and mark selected completed.
-- Inspection status dropdown includes:
-  - Scaffolding Prepared
-  - Manhole Opened
-  - NDT in Progress
-  - Insulation Removed
-  - Manhole Box-up
+## Run locally
 
-### Observation
-- List view + Add New form.
-- Multiple images upload.
-- Image preview in table (click to open).
-- Status dropdown color coded:
-  - Not Started (Red)
-  - In Progress (Yellow)
-  - Completed (Green)
-- Draft Email button pre-fills observation details and image paths.
+```bash
+python3 -m http.server 4173 --directory /workspace/ATR2026
+```
 
-### Requisition (RT / SR / DPT)
-- Form fields include tag, job details, unit, size, datetime, result, remarks.
-- If result = `Reshoot`, `Status 2` becomes available.
-- Requisition table supports edit.
-- Delete is admin-only.
-
-### Dashboard
-- Unit comparison chart.
-- Vessel / Pipeline / Steam Trap summaries.
-- Click on unit comparison chart for equipment drill-down.
-
-## Deploy on GitHub Pages
-
-1. Push repository to GitHub.
-2. Open **Settings → Pages**.
-3. Choose **Deploy from branch**.
-4. Select branch + root (`/`).
-5. Open published URL.
+Open `http://127.0.0.1:4173/login.html`

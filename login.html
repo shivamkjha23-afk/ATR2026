@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ATR2026 Login</title>
+  <link rel="stylesheet" href="./css/styles.css" />
+</head>
+<body class="landing-body">
+  <main class="landing-container">
+    <section class="landing-card">
+      <div class="list-actions">
+        <h1>ATR2026 Inspection Dashboard</h1>
+        <button id="themeToggleBtn" class="btn" type="button">Toggle Theme</button>
+      </div>
+
+      <div class="auth-switch">
+        <button class="btn tab-btn active" type="button" data-target="loginPanel">Login</button>
+        <button class="btn tab-btn" type="button" data-target="signupPanel">Create Account</button>
+      </div>
+
+      <section id="loginPanel">
+        <form id="loginForm" class="form-grid">
+          <label>Email<input id="loginEmail" type="email" required /></label>
+          <label>Password<input id="loginPassword" type="password" required /></label>
+          <button class="btn btn-primary" type="submit">Login</button>
+          <button class="btn" id="googleLoginBtn" type="button">Sign in with Google</button>
+        </form>
+      </section>
+
+      <section id="signupPanel" class="hidden">
+        <form id="signupForm" class="form-grid">
+          <label>Email<input id="signupEmail" type="email" required /></label>
+          <label>Password<input id="signupPassword" type="password" required minlength="6" /></label>
+          <button class="btn btn-primary" type="submit">Create Account</button>
+        </form>
+      </section>
+
+      <p id="authMessage" class="hint"></p>
+      <p class="hint">If login page shows error, verify <code>js/firebase-config.js</code> has real keys and Google provider is enabled in Firebase Auth.</p>
+    </section>
+  </main>
+  <script type="module" src="./js/login.js"></script>
+</body>
+</html>

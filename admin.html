@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Admin Panel | ATR-2026 Tracker</title>
+  <title>Admin | ATR-2026</title>
   <link rel="stylesheet" href="css/styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
-<body data-page="admin">
+<body>
   <div class="app-shell">
     <aside class="sidebar">
       <h2>ATR-2026</h2>
@@ -16,106 +16,30 @@
         <a class="nav-link" href="inspection.html">Update Inspection</a>
         <a class="nav-link" href="observation.html">Observation Entry</a>
         <a class="nav-link" href="requisition.html">Requisition</a>
-        <a class="nav-link active admin-only" href="admin.html">Admin Panel</a>
+        <a class="nav-link active" href="admin.html">Admin</a>
       </nav>
     </aside>
-
     <section class="content">
       <header class="header">
-        <h1>ATR-2026 Shutdown Tracker</h1>
+        <h1>Admin Panel</h1>
         <div class="header-right">
-          <p>Logged in as: <span id="loggedInUser">WindowsUser</span></p>
+          <p>Logged in as: <span id="loggedInUser"></span></p>
           <button id="themeToggleBtn" class="btn" type="button">Toggle Theme</button>
+          <button id="logoutBtn" class="btn" type="button">Logout</button>
         </div>
       </header>
 
-      <main class="admin-grid">
-        <section class="table-card">
-          <h2>Pending Access Requests</h2>
-          <div class="list-actions">
-            <label>User Filter
-              <select id="adminUserFilter">
-                <option value="all">All</option>
-                <option value="pending">Pending</option>
-                <option value="approved">Approved</option>
-              </select>
-            </label>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Username</th>
-                  <th>Role</th>
-                  <th>Request Date</th>
-                  <th>Status</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody id="pendingUsersBody"></tbody>
-            </table>
-          </div>
-        </section>
-
-        <section class="form-card">
-          <h3>Bulk Upload Data (Excel)</h3>
-          <p class="hint">For inspections: existing `id` updates record, blank `id` creates a new record.</p>
-
-          <label>Upload Type (Dropdown)
-            <select id="uploadTypeSelect">
-              <option value="inspections">Inspections</option>
-              <option value="users">Users</option>
-            </select>
-          </label>
-
-          <label>Default Unit for Blank Rows (Inspections)
-            <select id="defaultUploadUnit">
-              <option value="">No Default</option>
-              <option>GCU-1</option><option>GCU-2</option><option>GPU-1</option><option>GPU-2</option>
-              <option>HDPE-1</option><option>HDPE-2</option><option>LLDPE-1</option><option>LLDPE-2</option>
-              <option>PP-1</option><option>PP-2</option><option>LPG</option><option>SPHERE</option>
-              <option>YARD</option><option>FLAKER-1</option><option>BOG</option><option>IOP</option>
-            </select>
-          </label>
-
-          <div class="actions">
-            <button class="btn" id="downloadTemplateBtn" type="button">Download Excel Template</button>
-          </div>
-          <input type="file" id="bulkUploadFile" accept=".xlsx,.xls" />
-          <button class="btn btn-primary" id="bulkUploadBtn" type="button">Upload Excel Data</button>
-          <p id="bulkUploadMessage"></p>
-        </section>
-
-
-
-        <section class="form-card">
-          <h3>Central Database Sync (GitHub)</h3>
-          <p class="hint">GitHub Pages is static, so data writes are local by default. Use these controls to push all runtime JSON/images to repository data files.</p>
-          <label>GitHub Owner <input id="ghOwner" type="text" placeholder="owner" /></label>
-          <label>GitHub Repository <input id="ghRepo" type="text" placeholder="repo" /></label>
-          <label>Branch <input id="ghBranch" type="text" value="main" /></label>
-          <label>Personal Access Token <input id="ghToken" type="password" placeholder="ghp_..." /></label>
-          <div class="actions">
-            <button class="btn" id="exportAllDataBtn" type="button">Download Runtime JSON Backup</button>
-            <button class="btn btn-primary" id="syncGithubBtn" type="button">Sync All Data to GitHub</button>
-          </div>
-        </section>
-
-        <section class="form-card">
-          <h3>Database Path Settings</h3>
-          <label>Inspections JSON Path
-            <input type="text" value="/data/inspections.json" readonly />
-          </label>
-          <label>Users JSON Path
-            <input type="text" value="/data/users.json" readonly />
-          </label>
-          <p class="hint">Visual setting only for static deployment.</p>
-        </section>
-      </main>
+      <section class="table-card">
+        <h3>Bulk Upload - Inspection Updates</h3>
+        <div class="list-actions">
+          <button id="downloadTemplateBtn" class="btn" type="button">Download Excel Template</button>
+          <input id="inspectionExcelFile" type="file" accept=".xlsx,.xls" />
+          <button id="uploadExcelBtn" class="btn btn-primary" type="button">Upload Excel</button>
+        </div>
+        <p id="adminMessage" class="hint"></p>
+      </section>
     </section>
   </div>
-
-  <script src="js/storage.js"></script>
-  <script src="js/app.js"></script>
+  <script type="module" src="js/adminMain.js"></script>
 </body>
 </html>
