@@ -4,13 +4,14 @@ import { getAuth } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth
 import { getStorage } from 'https://www.gstatic.com/firebasejs/9.23.0/firebase-storage.js';
 
 // TODO: replace with your project values from Firebase Console.
-const firebaseConfig = {
-  apiKey: 'YOUR_API_KEY',
-  authDomain: 'YOUR_PROJECT.firebaseapp.com',
-  projectId: 'YOUR_PROJECT_ID',
-  storageBucket: 'YOUR_PROJECT.appspot.com',
-  messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-  appId: 'YOUR_APP_ID'
+onst firebaseConfig = {
+  apiKey: "AIzaSyDam8Q5xWNT5J7AfagEVWcC7TzT2LN8OHU",
+  authDomain: "atr2026-6541f.firebaseapp.com",
+  projectId: "atr2026-6541f",
+  storageBucket: "atr2026-6541f.firebasestorage.app",
+  messagingSenderId: "121442875078",
+  appId: "1:121442875078:web:741b5ffc315843352149c7",
+  measurementId: "G-8JY365XQXP"
 };
 
 const app = initializeApp(firebaseConfig);
