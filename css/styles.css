@@ -122,3 +122,10 @@ th { color: var(--muted); }
   .chart-card.wide { grid-column: span 1; }
   .form-grid { grid-template-columns: 1fr; }
 }
+
+
+.obs-status { width: 140px; margin: 0; }
+.status-red { background: #7f1d1d !important; color: #fff !important; }
+.status-yellow { background: #854d0e !important; color: #fff !important; }
+.status-green { background: #166534 !important; color: #fff !important; }
+.clickable-img { cursor: zoom-in; }
