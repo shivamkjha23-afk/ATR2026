@@ -14,6 +14,7 @@
         <a class="nav-link" href="dashboard.html">Dashboard</a>
         <a class="nav-link active" href="inspection.html">Update Inspection</a>
         <a class="nav-link" href="observation.html">Observation Entry</a>
+        <a class="nav-link" href="requisition.html">Requisition</a>
         <a class="nav-link admin-only" href="admin.html">Admin Panel</a>
       </nav>
     </aside>
@@ -86,8 +87,8 @@
             <label>Inspection Date
               <input type="date" id="inspection_date" />
             </label>
-            <label>Status
-              <input type="text" id="status" placeholder="Open / Hold / Closed" />
+            <label>Inspection Status
+              <select id="status"></select>
             </label>
             <label>Final Status
               <select id="final_status" required>
