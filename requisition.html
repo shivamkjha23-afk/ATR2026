@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Requisition | ATR-2026 Tracker</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body data-page="requisition">
+  <div class="app-shell">
+    <aside class="sidebar">
+      <h2>ATR-2026</h2>
+      <nav>
+        <a class="nav-link" href="dashboard.html">Dashboard</a>
+        <a class="nav-link" href="inspection.html">Update Inspection</a>
+        <a class="nav-link" href="observation.html">Observation Entry</a>
+        <a class="nav-link active" href="requisition.html">Requisition</a>
+        <a class="nav-link admin-only" href="admin.html">Admin Panel</a>
+      </nav>
+    </aside>
+
+    <section class="content">
+      <header class="header">
+        <h1>ATR-2026 Requisition Tracker</h1>
+        <div class="header-right">
+          <p>Logged in as: <span id="loggedInUser">WindowsUser</span></p>
+          <button id="themeToggleBtn" class="btn" type="button">Toggle Theme</button>
+        </div>
+      </header>
+
+      <main>
+        <section class="table-card">
+          <div class="list-actions">
+            <h2>Requisitions</h2>
+            <button class="btn btn-primary" id="openRequisitionFormBtn" type="button">Add New</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tag No</th><th>Job Description</th><th>Location</th><th>Unit</th><th>Type</th><th>Result</th><th>Status 2</th><th>Remarks</th><th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="requisitionTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="form-card hidden" id="requisitionFormPanel">
+          <h2>Requisition Form</h2>
+          <form id="requisitionForm" class="form-grid">
+            <label>Tag No <input id="reqTag" required /></label>
+            <label>Module
+              <select id="reqType"><option>RT</option><option>SR</option><option>DPT</option></select>
+            </label>
+            <label class="full-width">Job Description <textarea id="reqJobDescription" required></textarea></label>
+            <label>Location <input id="reqLocation" required /></label>
+            <label>Unit <select id="reqUnit" required><option value="">Select Unit</option></select></label>
+            <label>Job Size <input id="reqJobSize" /></label>
+            <label>Requisition Date & Time <input type="datetime-local" id="reqDateTime" required /></label>
+            <label>Result
+              <select id="reqResult">
+                <option>Acceptable</option>
+                <option>Defect Observed</option>
+                <option>Reshoot</option>
+                <option>Completed</option>
+              </select>
+            </label>
+            <label id="status2Wrap" class="hidden">Status 2
+              <select id="reqStatus2">
+                <option>Acceptable</option>
+                <option>Defect Observed</option>
+                <option>Reshoot</option>
+                <option>Completed</option>
+              </select>
+            </label>
+            <label class="full-width">Remarks <textarea id="reqRemarks"></textarea></label>
+            <div class="actions full-width">
+              <button class="btn btn-primary" type="submit">Save Requisition</button>
+              <button class="btn" id="closeRequisitionFormBtn" type="button">Close Form</button>
+            </div>
+          </form>
+        </section>
+      </main>
+    </section>
+  </div>
+
+  <script src="js/storage.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
