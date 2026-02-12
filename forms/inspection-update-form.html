@@ -1,0 +1,26 @@
+<h3>Inspection Update</h3>
+<form id="inspectionForm" class="form-grid">
+  <label>Unit Name<input name="unit_name" required /></label>
+  <label>Equipment Type<input name="equipment_type" required /></label>
+  <label>Equipment Tag Number<input name="equipment_tag_number" required /></label>
+  <label>Inspection Type<input name="inspection_type" required /></label>
+  <label>Equipment Name<input name="equipment_name" required /></label>
+  <label>Last Inspection Year<input name="last_inspection_year" /></label>
+  <label>Inspection Possible<select name="inspection_possible"><option>Yes</option><option>No</option></select></label>
+  <label>Inspection Date<input type="date" name="inspection_date" /></label>
+  <label>Status
+    <select name="status">
+      <option>Scaffolding Prepared</option>
+      <option>Manhole Opened</option>
+      <option>NDT in Progress</option>
+      <option>Insulation Removed</option>
+      <option>Manhole Box-up</option>
+      <option>Completed</option>
+    </select>
+  </label>
+  <label>Final Status<select name="final_status"><option>Not Started</option><option>In Progress</option><option>Completed</option></select></label>
+  <label class="full-width">Remarks<textarea name="remarks"></textarea></label>
+  <label class="full-width">Observation<textarea name="observation"></textarea></label>
+  <label class="full-width">Recommendation<textarea name="recommendation"></textarea></label>
+  <button class="btn btn-primary" type="submit">Save</button>
+</form>

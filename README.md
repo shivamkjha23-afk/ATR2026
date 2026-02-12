@@ -1,97 +1,143 @@
-# ATR-2026 Shutdown Inspection Tracker – PATA Plant
+# ATR2026 Inspection Dashboard (Firebase Backend)
 
-Static GitHub Pages-ready web app (HTML/CSS/Vanilla JS + JSON seed files + localStorage runtime DB).
+This is now a **Firebase-only static web app** (GitHub Pages compatible).
 
-## Login / Authentication
+- Frontend: Vanilla JavaScript + HTML/CSS
+- Backend: Firebase Authentication + Firestore + Storage
+- Realtime updates: Firestore `onSnapshot`
+- No Node.js backend
 
-- Login requires **User ID + Password**.
-- Users are loaded from `data/users.json`.
-- Admin can approve new requested users.
-- Every created/updated record stores:
-  - `entered_by`
-  - `timestamp`
-  - `updated_by`
+---
 
-Default admin:
-- User: `shivam.jha`
-- Password: `admin@123`
+## Live pages
+- `index.html` → redirects to `login.html`
+- `login.html`
+- `pages/dashboard.html`
+- `pages/inspection-updates.html`
 
-## Data Model (central runtime DB)
+---
 
-Runtime data is synchronized into one central browser DB object (`atr2026_db`) and seeded from:
+## Important: configure Firebase first
 
-- `data/inspections.json`
-- `data/observations.json`
-- `data/requisitions.json`
-- `data/users.json`
+The app will **not load** until valid keys are set.
 
-Images are stored as data records with path keys under:
-- `data/images/` (logical path stored in DB)
+Open `js/firebase-config.js` and paste your exact Firebase web config:
 
+```js
+export const firebaseConfig = {
+  apiKey: '...',
+  authDomain: '...firebaseapp.com',
+  projectId: '...',
+  storageBucket: '...appspot.com',
+  messagingSenderId: '...',
+  appId: '...'
+};
+```
 
-## Central Storage Note (Important)
+If placeholders remain (`YOUR_...`), app throws a clear error intentionally.
 
-Because GitHub Pages is static, browser edits do not automatically write back to repository files.
+---
 
-This project now includes **Admin → Central Database Sync**:
-- **Download Runtime JSON Backup** (local safety export)
-- **Sync All Data to GitHub** (pushes updated `data/*.json` + `data/images/*` using GitHub API token)
+## Firebase setup (complete)
 
-This resolves the issue where changes were only visible locally.
+## 1) Create project
+1. Go to Firebase Console.
+2. Create project.
+3. Add Web App.
+4. Copy web config into `js/firebase-config.js`.
 
-## Admin Excel Upload Rules
+## 2) Authentication
+1. Firebase Console → Authentication.
+2. Enable **Email/Password**.
 
-From **Admin Panel**:
-- Download template from **Download Excel Template**.
-- Choose upload type (`Inspections` or `Users`).
+## 3) Firestore
+1. Firebase Console → Firestore Database.
+2. Create database.
+3. Create these collections:
 
-Inspections upload rule:
-- If Excel row `id` exists in DB => update that record.
-- If `id` is blank => new record created with system-generated unique ID.
+### `inspection_updates`
+Required fields:
+- `unit_name`
+- `equipment_type`
+- `equipment_tag_number`
+- `inspection_type`
+- `equipment_name`
+- `last_inspection_year`
+- `inspection_possible`
+- `inspection_date`
+- `status`
+- `final_status`
+- `remarks`
+- `observation`
+- `recommendation`
+- `updated_by`
+- `update_date`
+- `timestamp`
 
-Users upload rule:
-- Upsert by `username`.
+### `observations`
+- `tag`
+- `description`
+- `location`
+- `unit`
+- `status`
+- `imageUrl`
+- `enteredBy`
+- `timestamp`
 
-## Modules
+### `requisitions`
+- `type`
+- `tagNo`
+- `jobDescription`
+- `location`
+- `unit`
+- `jobSize`
+- `result`
+- `status2`
+- `remarks`
+- `timestamp`
+- `enteredBy`
 
-### Update Inspection
-- Unit filter, equipment-type tabs, tag search.
-- Unit-wise list panels.
-- Row edit opens hidden form.
-- Add Equipment button opens hidden form.
-- Multi-select and mark selected completed.
-- Inspection status dropdown includes:
-  - Scaffolding Prepared
-  - Manhole Opened
-  - NDT in Progress
-  - Insulation Removed
-  - Manhole Box-up
+## 4) Storage
+1. Firebase Console → Storage → Get started.
+2. Upload path used by app: `inspection-images/`
 
-### Observation
-- List view + Add New form.
-- Multiple images upload.
-- Image preview in table (click to open).
-- Status dropdown color coded:
-  - Not Started (Red)
-  - In Progress (Yellow)
-  - Completed (Green)
-- Draft Email button pre-fills observation details and image paths.
+---
 
-### Requisition (RT / SR / DPT)
-- Form fields include tag, job details, unit, size, datetime, result, remarks.
-- If result = `Reshoot`, `Status 2` becomes available.
-- Requisition table supports edit.
-- Delete is admin-only.
+## OneDrive image usage (your flow)
 
-### Dashboard
-- Unit comparison chart.
-- Vessel / Pipeline / Steam Trap summaries.
-- Click on unit comparison chart for equipment drill-down.
+You can keep images in your OneDrive folder and paste shared URLs.
 
-## Deploy on GitHub Pages
+In Observation form:
+- Either upload local image file (saved to Firebase Storage)
+- Or paste OneDrive shared link in `OneDrive Image URL`
 
-1. Push repository to GitHub.
-2. Open **Settings → Pages**.
-3. Choose **Deploy from branch**.
-4. Select branch + root (`/`).
-5. Open published URL.
+If URL is provided and no file selected, that URL is saved in Firestore as `imageUrl`.
+
+---
+
+## Firestore realtime features
+- Dashboard KPI cards auto update
+- Vessel/Pipeline/Steam Trap charts auto update
+- Unit comparison chart auto update
+- Daily progress chart auto update
+- Inspection, Observation, Requisition tables auto update
+
+---
+
+## Deploy to GitHub Pages
+1. Push repo to GitHub.
+2. Settings → Pages.
+3. Deploy from branch (`main`, root).
+4. Open site URL.
+
+---
+
+## Cleanup done in this repo
+Legacy local JSON/localStorage implementation files were removed to avoid conflicts.
+
+Removed old files include:
+- `dashboard.html`, `inspection.html`, `observation.html`, `requisition.html`, `admin.html`
+- `js/app.js`, `js/storage.js`, `js/dashboard.js`
+- local JSON DB files under `data/*.json`
+
+App now runs only on Firebase-backed pages under `login.html` and `pages/`.

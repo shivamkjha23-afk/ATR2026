@@ -1,0 +1,13 @@
+<h3>Observation</h3>
+<form id="observationForm" class="form-grid">
+  <label>Tag<input name="tag" required /></label>
+  <label>Description<input name="description" required /></label>
+  <label>Location<input name="location" required /></label>
+  <label>Unit<input name="unit" required /></label>
+  <label>Status<select name="status"><option>Not Started</option><option>In Progress</option><option>Completed</option></select></label>
+  <label>Image File (optional)<input id="observationImage" type="file" accept="image/*" /></label>
+  <label class="full-width">OneDrive Image URL (optional)
+    <input name="imageUrl" type="url" placeholder="Paste OneDrive shared image URL" />
+  </label>
+  <button class="btn btn-primary" type="submit">Save</button>
+</form>
