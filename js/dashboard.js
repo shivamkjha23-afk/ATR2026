@@ -1,77 +1,70 @@
 function calculateProgress(inspections) {
+  const today = new Date().toISOString().slice(0, 10);
   const summary = {
     total: inspections.length,
-    completed: 0,
-    inProgress: 0,
-    notStarted: 0
+    completed: inspections.filter((r) => r.final_status === 'Completed').length,
+    inProgress: inspections.filter((r) => r.final_status === 'In Progress').length,
+    notStarted: inspections.filter((r) => r.final_status === 'Not Started').length,
+    todaysProgress: inspections.filter((r) => (r.timestamp || '').slice(0, 10) === today).length
   };
-
-  inspections.forEach((item) => {
-    if (item.final_status === 'Completed') summary.completed += 1;
-    else if (item.final_status === 'In Progress') summary.inProgress += 1;
-    else summary.notStarted += 1;
-  });
-
   return summary;
 }
 
-function typeBreakdown(inspections, typeName) {
-  const filtered = inspections.filter((item) => item.equipment_type === typeName);
-  const complete = filtered.filter((item) => item.final_status === 'Completed').length;
-  const pending = filtered.length - complete;
-  return { total: filtered.length, complete, pending };
+function aggregateByUnit(inspections, equipmentType = '') {
+  const map = {};
+  inspections.forEach((r) => {
+    if (equipmentType && r.equipment_type !== equipmentType) return;
+    if (!map[r.unit_name]) map[r.unit_name] = { completed: 0, inProgress: 0, total: 0 };
+    map[r.unit_name].total += 1;
+    if (r.final_status === 'Completed') map[r.unit_name].completed += 1;
+    if (r.final_status === 'In Progress') map[r.unit_name].inProgress += 1;
+  });
+  return map;
 }
 
 function renderCharts(inspections) {
-  const vessel = typeBreakdown(inspections, 'Vessel');
-  const pipeline = typeBreakdown(inspections, 'Pipeline');
-  const steam = typeBreakdown(inspections, 'Steam Trap');
+  const unitMap = aggregateByUnit(inspections);
+  const units = Object.keys(unitMap);
+  const completed = units.map((u) => unitMap[u].completed);
+  const inProgress = units.map((u) => unitMap[u].inProgress);
 
-  const makeDoughnut = (id, info) => {
-    const canvas = document.getElementById(id);
-    if (!canvas) return;
-    new Chart(canvas, {
-      type: 'doughnut',
-      data: {
-        labels: ['Completed', 'Pending'],
-        datasets: [{ data: [info.complete, info.pending], backgroundColor: ['#22c55e', '#475569'] }]
-      },
-      options: { plugins: { legend: { labels: { color: '#e2e8f0' } } } }
-    });
-  };
-
-  makeDoughnut('vesselChart', vessel);
-  makeDoughnut('pipelineChart', pipeline);
-  makeDoughnut('steamTrapChart', steam);
-
-  const unitTotals = {};
-  inspections.forEach((item) => {
-    if (!unitTotals[item.unit_name]) unitTotals[item.unit_name] = { total: 0, completed: 0 };
-    unitTotals[item.unit_name].total += 1;
-    if (item.final_status === 'Completed') unitTotals[item.unit_name].completed += 1;
-  });
-
-  const units = Object.keys(unitTotals);
-  const percentages = units.map((u) => {
-    const stat = unitTotals[u];
-    return Number(((stat.completed / stat.total) * 100).toFixed(1));
-  });
-
-  const unitCanvas = document.getElementById('unitProgressChart');
-  if (unitCanvas) {
-    new Chart(unitCanvas, {
+  const unitChart = document.getElementById('unitProgressChart');
+  if (unitChart) {
+    new Chart(unitChart, {
       type: 'bar',
       data: {
         labels: units,
-        datasets: [{ label: 'Completion %', data: percentages, backgroundColor: '#0ea5e9' }]
+        datasets: [
+          { label: 'Completed', data: completed, backgroundColor: '#22c55e' },
+          { label: 'In Progress', data: inProgress, backgroundColor: '#f59e0b' }
+        ]
       },
       options: {
-        scales: {
-          x: { ticks: { color: '#cbd5e1' } },
-          y: { beginAtZero: true, max: 100, ticks: { color: '#cbd5e1' } }
-        },
-        plugins: { legend: { labels: { color: '#e2e8f0' } } }
+        responsive: true,
+        onClick(_, elements) {
+          if (!elements.length) return;
+          const unit = units[elements[0].index];
+          const detail = inspections.filter((r) => r.unit_name === unit);
+          const info = detail.map((d) => `${d.equipment_tag_number} (${d.equipment_type}) - ${d.final_status}`).join('\n');
+          alert(`Equipment Drill-down: ${unit}\n\n${info || 'No records'}`);
+        }
       }
     });
   }
+
+  function smallChart(id, type) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const map = aggregateByUnit(inspections, type);
+    const labels = Object.keys(map);
+    const data = labels.map((u) => map[u].total);
+    new Chart(el, {
+      type: 'line',
+      data: { labels, datasets: [{ label: `${type} summary`, data, borderColor: '#0ea5e9' }] }
+    });
+  }
+
+  smallChart('vesselChart', 'Vessel');
+  smallChart('pipelineChart', 'Pipeline');
+  smallChart('steamTrapChart', 'Steam Trap');
 }

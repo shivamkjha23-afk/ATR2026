@@ -15,10 +15,10 @@
         <a class="nav-link active" href="dashboard.html">Dashboard</a>
         <a class="nav-link" href="inspection.html">Update Inspection</a>
         <a class="nav-link" href="observation.html">Observation Entry</a>
+        <a class="nav-link" href="requisition.html">Requisition</a>
         <a class="nav-link admin-only" href="admin.html">Admin Panel</a>
       </nav>
     </aside>
-
     <section class="content">
       <header class="header">
         <h1>ATR-2026 Shutdown Tracker</h1>
@@ -27,37 +27,24 @@
           <button id="themeToggleBtn" class="btn" type="button">Toggle Theme</button>
         </div>
       </header>
-
       <main>
         <section class="cards-grid">
           <article class="card"><h3>Total Equipment</h3><p id="totalCount">0</p></article>
           <article class="card"><h3>Completed</h3><p id="completedCount">0</p></article>
           <article class="card"><h3>In Progress</h3><p id="inProgressCount">0</p></article>
           <article class="card"><h3>Not Started</h3><p id="notStartedCount">0</p></article>
+          <article class="card"><h3>Today's Progress</h3><p id="todaysProgressCount">0</p></article>
         </section>
 
         <section class="charts-grid">
-          <article class="chart-card">
-            <h3>Vessel Progress</h3>
-            <canvas id="vesselChart"></canvas>
-          </article>
-          <article class="chart-card">
-            <h3>Pipeline Progress</h3>
-            <canvas id="pipelineChart"></canvas>
-          </article>
-          <article class="chart-card">
-            <h3>Steam Trap Progress</h3>
-            <canvas id="steamTrapChart"></canvas>
-          </article>
-          <article class="chart-card wide">
-            <h3>Unit-wise Progress</h3>
-            <canvas id="unitProgressChart"></canvas>
-          </article>
+          <article class="chart-card"><h3>Vessel Summary</h3><canvas id="vesselChart"></canvas></article>
+          <article class="chart-card"><h3>Pipeline Summary</h3><canvas id="pipelineChart"></canvas></article>
+          <article class="chart-card"><h3>Steam Trap Summary</h3><canvas id="steamTrapChart"></canvas></article>
+          <article class="chart-card wide"><h3>Unit Comparison (Drill-down on click)</h3><canvas id="unitProgressChart"></canvas></article>
         </section>
       </main>
     </section>
   </div>
-
   <script src="js/storage.js"></script>
   <script src="js/dashboard.js"></script>
   <script src="js/app.js"></script>
