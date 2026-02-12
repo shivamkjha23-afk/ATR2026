@@ -28,6 +28,17 @@ Runtime data is synchronized into one central browser DB object (`atr2026_db`) a
 Images are stored as data records with path keys under:
 - `data/images/` (logical path stored in DB)
 
+
+## Central Storage Note (Important)
+
+Because GitHub Pages is static, browser edits do not automatically write back to repository files.
+
+This project now includes **Admin → Central Database Sync**:
+- **Download Runtime JSON Backup** (local safety export)
+- **Sync All Data to GitHub** (pushes updated `data/*.json` + `data/images/*` using GitHub API token)
+
+This resolves the issue where changes were only visible locally.
+
 ## Admin Excel Upload Rules
 
 From **Admin Panel**:
