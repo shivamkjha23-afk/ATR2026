@@ -69,17 +69,17 @@ function getSessionUser() {
 function getCloudConfig() {
   const cfg = JSON.parse(localStorage.getItem(STORAGE_KEYS.cloudConfig) || '{}');
   return {
-    enabled: Boolean(cfg.enabled),
-    cloudinaryCloudName: (cfg.cloudinaryCloudName || '').trim(),
-    cloudinaryUploadPreset: (cfg.cloudinaryUploadPreset || '').trim()
+    enabled: cfg.enabled !== false,
+    cloudinaryCloudName: (cfg.cloudinaryCloudName || 'dhlmqtton').trim(),
+    cloudinaryUploadPreset: (cfg.cloudinaryUploadPreset || 'ATR-2026-I').trim()
   };
 }
 
 function setCloudConfig(config) {
   const next = {
-    enabled: Boolean(config.enabled),
-    cloudinaryCloudName: (config.cloudinaryCloudName || '').trim(),
-    cloudinaryUploadPreset: (config.cloudinaryUploadPreset || '').trim()
+    enabled: config.enabled !== false,
+    cloudinaryCloudName: (config.cloudinaryCloudName || 'dhlmqtton').trim(),
+    cloudinaryUploadPreset: (config.cloudinaryUploadPreset || 'ATR-2026-I').trim()
   };
   localStorage.setItem(STORAGE_KEYS.cloudConfig, JSON.stringify(next));
 }
@@ -207,6 +207,16 @@ function ensureDefaultAdmin(db) {
   }
 }
 
+function ensureRuntimeDefaults() {
+  runtimeDB = clone({ ...DB_TEMPLATE, ...runtimeDB });
+  ensureDefaultAdmin(runtimeDB);
+  runtimeDB._meta = runtimeDB._meta || {};
+  runtimeDB._meta.last_updated = runtimeDB._meta.last_updated || nowStamp();
+}
+
+ensureRuntimeDefaults();
+
+
 function buildDatabaseFilesPayload() {
   const db = readDB();
   return {
@@ -230,19 +240,23 @@ function downloadTextFile(fileName, content) {
 }
 
 async function initializeData() {
-  const ref = runtimeDocRef();
-  const snap = await ref.get();
+  ensureRuntimeDefaults();
 
-  if (snap.exists && snap.data()) {
-    runtimeDB = clone({ ...DB_TEMPLATE, ...snap.data() });
-    return;
+  try {
+    const ref = runtimeDocRef();
+    const snap = await ref.get();
+
+    if (snap.exists && snap.data()) {
+      runtimeDB = clone({ ...DB_TEMPLATE, ...snap.data() });
+      ensureRuntimeDefaults();
+      return;
+    }
+
+    await ref.set(buildDatabaseFilesPayload(), { merge: false });
+  } catch (err) {
+    setSyncStatus({ ok: false, message: `Firebase init fallback: ${err.message}` });
+    ensureRuntimeDefaults();
   }
-
-  const seeded = structuredClone(DB_TEMPLATE);
-  ensureDefaultAdmin(seeded);
-  seeded._meta.last_updated = nowStamp();
-  runtimeDB = clone(seeded);
-  await ref.set(runtimeDB, { merge: false });
 }
 
 async function syncAllToCloud(config = getCloudConfig()) {
@@ -318,6 +332,14 @@ function startRealtimeSync() {
 async function signInWithGoogle() {
   bootFirebase();
   const provider = new firebase.auth.GoogleAuthProvider();
-  const result = await firebaseAuth.signInWithPopup(provider);
-  return result?.user || null;
+  try {
+    const result = await firebaseAuth.signInWithPopup(provider);
+    return result?.user || null;
+  } catch (err) {
+    if (err?.code === 'auth/popup-blocked' || err?.code === 'auth/cancelled-popup-request') {
+      await firebaseAuth.signInWithRedirect(provider);
+      return null;
+    }
+    throw err;
+  }
 }
