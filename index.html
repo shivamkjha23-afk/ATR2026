@@ -8,60 +8,57 @@
 </head>
 <body class="landing-body" data-page="login">
   <main class="landing-container">
-    <section class="landing-card">
+    <section class="landing-card auth-card">
       <div class="list-actions">
         <h1>ATR-2026 Shutdown Inspection Tracker</h1>
         <button id="themeToggleBtn" class="btn" type="button">Toggle Theme</button>
       </div>
-      <p class="subtitle">Login with User ID and Password</p>
+      <p class="subtitle">Secure sign-in for ATR-2026 inspection operations.</p>
 
-      <form id="loginForm">
-        <label>User ID
-          <input id="username" type="text" required />
-        </label>
-        <label>Password
-          <input id="password" type="password" required />
-        </label>
-        <label class="inline-check">
-          <input id="showPasswordToggle" type="checkbox" /> Show Password
-        </label>
-        <button id="loginBtn" class="btn btn-primary" type="submit">Login</button>
-        <button id="googleSignInBtn" class="btn" type="button">Sign in with Google</button>
-      </form>
+      <div class="auth-tabs" role="tablist" aria-label="Authentication tabs">
+        <button id="signInTabBtn" class="auth-tab active" type="button">Sign In</button>
+        <button id="createAccountTabBtn" class="auth-tab" type="button">Create Account</button>
+      </div>
 
-      <hr />
-      <h3>Create Account</h3>
-      <form id="signupForm">
-        <label>New User ID
-          <input id="newUsername" type="text" required />
-        </label>
-        <label>New Password
-          <input id="newPassword" type="password" required />
-        </label>
-        <label>Role
-          <select id="newRole">
-            <option value="inspector">inspector</option>
-            <option value="engineer">engineer</option>
-          </select>
-        </label>
-        <button class="btn" type="submit">Create Account Request</button>
-      </form>
+      <section id="signInPanel" class="auth-panel">
+        <form id="loginForm" novalidate>
+          <label>User ID
+            <input id="username" type="text" autocomplete="username" required />
+          </label>
+          <label>Password
+            <input id="password" type="password" autocomplete="current-password" required />
+          </label>
+          <label class="inline-check">
+            <input id="showPasswordToggle" type="checkbox" /> Show Password
+          </label>
+          <button id="loginBtn" class="btn btn-primary" type="submit">Login</button>
+          <button id="googleSignInBtn" class="btn" type="button">Sign in with Google</button>
+        </form>
+      </section>
 
-      
-      <details>
-        <summary>Cloud Sync Settings (Firebase + Cloudinary)</summary>
-        <label>Cloudinary Cloud Name
-          <input id="cloudinaryCloudName" type="text" placeholder="your-cloud-name" />
-        </label>
-        <label>Cloudinary Upload Preset (Unsigned)
-          <input id="cloudinaryUploadPreset" type="text" placeholder="atr2026_unsigned" />
-        </label>
-        <label class="inline-check">
-          <input id="syncEnabled" type="checkbox" /> Enable automatic Firebase sync on every submit/save/delete
-        </label>
-      </details>
+      <section id="createAccountPanel" class="auth-panel hidden">
+        <form id="signupForm" novalidate>
+          <label>New User ID
+            <input id="newUsername" type="text" autocomplete="username" required />
+          </label>
+          <label>New Password
+            <input id="newPassword" type="password" autocomplete="new-password" required />
+          </label>
+          <label class="inline-check">
+            <input id="showNewPasswordToggle" type="checkbox" /> Show New Password
+          </label>
+          <label>Role
+            <select id="newRole">
+              <option value="inspector">inspector</option>
+              <option value="engineer">engineer</option>
+            </select>
+          </label>
+          <button class="btn" type="submit">Create Account Request</button>
+        </form>
+      </section>
 
-      <p id="authMessage" class="hint"></p>
+      <div class="cloud-pill">Auto-sync enabled · Cloudinary: <strong>dhlmqtton</strong> · Preset: <strong>ATR-2026-I</strong></div>
+      <p id="authMessage" class="hint auth-message"></p>
       <p class="hint">Default admin: shivam.jha / admin@123</p>
     </section>
   </main>
