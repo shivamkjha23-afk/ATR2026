@@ -86,6 +86,21 @@
           <p id="bulkUploadMessage"></p>
         </section>
 
+
+
+        <section class="form-card">
+          <h3>Central Database Sync (GitHub)</h3>
+          <p class="hint">GitHub Pages is static, so data writes are local by default. Use these controls to push all runtime JSON/images to repository data files.</p>
+          <label>GitHub Owner <input id="ghOwner" type="text" placeholder="owner" /></label>
+          <label>GitHub Repository <input id="ghRepo" type="text" placeholder="repo" /></label>
+          <label>Branch <input id="ghBranch" type="text" value="main" /></label>
+          <label>Personal Access Token <input id="ghToken" type="password" placeholder="ghp_..." /></label>
+          <div class="actions">
+            <button class="btn" id="exportAllDataBtn" type="button">Download Runtime JSON Backup</button>
+            <button class="btn btn-primary" id="syncGithubBtn" type="button">Sync All Data to GitHub</button>
+          </div>
+        </section>
+
         <section class="form-card">
           <h3>Database Path Settings</h3>
           <label>Inspections JSON Path
