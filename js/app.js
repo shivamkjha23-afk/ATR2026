@@ -116,6 +116,35 @@ function setupLogin() {
   // Always-on cloud sync config (embedded as requested)
   setCloudConfig({ enabled: true, cloudinaryCloudName: 'dhlmqtton', cloudinaryUploadPreset: 'ATR-2026-I' });
 
+  async function completeGoogleLogin(gUser) {
+    if (!gUser) return;
+    if (!gUser.email) throw new Error('Google sign-in did not return an email.');
+
+    const username = gUser.email.trim().toLowerCase();
+    let user = getUser(username);
+    if (!user) {
+      requestAccess({
+        id: generateId('USR'),
+        username,
+        password: 'google-auth',
+        role: 'inspector',
+        approved: false,
+        request_date: new Date().toISOString().slice(0, 10),
+        approved_by: ''
+      });
+      user = getUser(username);
+    }
+
+    if (!user?.approved) {
+      if (msg) msg.textContent = 'Google account captured. Pending admin approval.';
+      return;
+    }
+
+    localStorage.setItem(STORAGE_KEYS.sessionUser, username);
+    localStorage.setItem('username', username);
+    window.location.assign('dashboard.html');
+  }
+
   function setActiveTab(tab) {
     if (!signInTabBtn || !createAccountTabBtn || !signInPanel || !createAccountPanel) return;
     const signInActive = tab === 'signin';
@@ -145,32 +174,7 @@ function setupLogin() {
     googleSignInBtn.addEventListener('click', async () => {
       try {
         const gUser = await signInWithGoogle();
-        if (!gUser) return;
-        if (!gUser.email) throw new Error('Google sign-in did not return an email.');
-
-        const username = gUser.email.toLowerCase();
-        let user = getUser(username);
-        if (!user) {
-          requestAccess({
-            id: generateId('USR'),
-            username,
-            password: 'google-auth',
-            role: 'inspector',
-            approved: false,
-            request_date: new Date().toISOString().slice(0, 10),
-            approved_by: ''
-          });
-          user = getUser(username);
-        }
-
-        if (!user?.approved) {
-          if (msg) msg.textContent = 'Google account captured. Pending admin approval.';
-          return;
-        }
-
-        localStorage.setItem(STORAGE_KEYS.sessionUser, username);
-        localStorage.setItem('username', username);
-        window.location.assign('dashboard.html');
+        await completeGoogleLogin(gUser);
       } catch (err) {
         if (msg) msg.textContent = err.message || 'Google sign-in failed.';
       }
@@ -181,7 +185,7 @@ function setupLogin() {
     loginForm.addEventListener('submit', (e) => {
       e.preventDefault();
 
-      const username = document.getElementById('username').value.trim();
+      const username = document.getElementById('username').value.trim().toLowerCase();
       const password = document.getElementById('password').value;
       const user = getUser(username);
 
@@ -210,7 +214,7 @@ function setupLogin() {
     signupForm.addEventListener('submit', (e) => {
       e.preventDefault();
 
-      const username = document.getElementById('newUsername').value.trim();
+      const username = document.getElementById('newUsername').value.trim().toLowerCase();
       const password = document.getElementById('newPassword').value;
       const role = document.getElementById('newRole').value;
 
@@ -238,6 +242,12 @@ function setupLogin() {
       setActiveTab('signin');
     });
   }
+
+  consumeGoogleRedirectResult()
+    .then((gUser) => completeGoogleLogin(gUser))
+    .catch((err) => {
+      if (msg && err?.code !== 'auth/no-auth-event') msg.textContent = err.message || 'Google redirect sign-in failed.';
+    });
 }
 
 function normalizeInspectionPayload(payload) {
@@ -634,7 +644,14 @@ function setupAdminPanel() {
 
   function renderUsers() {
     const users = getCollection('users');
-    tbody.innerHTML = users.map((u) => `<tr>
+    const filterValue = document.getElementById('adminUserFilter')?.value || 'all';
+    const filteredUsers = users.filter((u) => {
+      if (filterValue === 'pending') return !u.approved;
+      if (filterValue === 'approved') return !!u.approved;
+      return true;
+    });
+
+    tbody.innerHTML = filteredUsers.map((u) => `<tr>
       <td>${u.username}</td><td>${u.role}</td><td>${u.request_date || '-'}</td><td>${u.approved ? 'Approved' : 'Pending'}</td>
       <td>${u.approved ? '-' : `<button class="btn approve-user" data-user="${u.username}" type="button">Approve</button>`}</td>
     </tr>`).join('');
@@ -697,6 +714,8 @@ function setupAdminPanel() {
   }
 
   document.getElementById('downloadTemplateBtn').onclick = downloadTemplate;
+  const userFilter = document.getElementById('adminUserFilter');
+  if (userFilter) userFilter.onchange = renderUsers;
   document.getElementById('bulkUploadBtn').onclick = () => {
     const file = document.getElementById('bulkUploadFile').files[0];
     if (!file) return;
