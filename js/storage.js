@@ -230,7 +230,7 @@ function requestAccess(user) {
   saveCollection('users', users);
 }
 
-function approveUser(username, approvedBy = 'shivam.jha') {
+function approveUser(username, approvedBy = 'subhshivam22@gmail.com') {
   const normalizedUsername = normalizeUsername(username);
   const users = getCollection('users').map((u) => (
     normalizeUsername(u.username) === normalizedUsername ? withAudit({ ...u, approved: true, approved_by: approvedBy }, true) : u
@@ -239,10 +239,10 @@ function approveUser(username, approvedBy = 'shivam.jha') {
 }
 
 function ensureDefaultAdmin(db) {
-  if (!db.users.some((u) => normalizeUsername(u.username) === 'shivam.jha')) {
+  if (!db.users.some((u) => normalizeUsername(u.username) === 'subhshivam22@gmail.com')) {
     db.users.push(withAudit({
       id: generateId('USR'),
-      username: 'shivam.jha',
+      username: 'subhshivam22@gmail.com',
       password: 'admin@123',
       role: 'admin',
       approved: true,
