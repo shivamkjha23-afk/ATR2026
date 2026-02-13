@@ -477,6 +477,59 @@ function normalizeInspectionPayload(payload) {
   };
 }
 
+const INSPECTION_FORM_FIELDS = [
+  'id',
+  'equipment_tag_number',
+  'unit_name',
+  'equipment_type',
+  'inspection_type',
+  'equipment_name',
+  'last_inspection_year',
+  'inspection_possible',
+  'inspection_date',
+  'status',
+  'final_status',
+  'remarks',
+  'observation',
+  'recommendation'
+];
+
+function normalizeExcelHeader(value) {
+  return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function remapInspectionExcelRow(row = {}) {
+  const keyMap = {
+    id: 'id',
+    equipmenttagnumber: 'equipment_tag_number',
+    tagnumber: 'equipment_tag_number',
+    equipmenttag: 'equipment_tag_number',
+    unitname: 'unit_name',
+    unit: 'unit_name',
+    equipmenttype: 'equipment_type',
+    inspectiontype: 'inspection_type',
+    equipmentname: 'equipment_name',
+    lastinspectionyear: 'last_inspection_year',
+    inspectionpossible: 'inspection_possible',
+    inspectionscope: 'inspection_possible',
+    inspectiondate: 'inspection_date',
+    status: 'status',
+    finalstatus: 'final_status',
+    remarks: 'remarks',
+    observation: 'observation',
+    recommendation: 'recommendation'
+  };
+
+  const mapped = {};
+  Object.entries(row || {}).forEach(([rawKey, rawValue]) => {
+    const normalizedHeader = normalizeExcelHeader(rawKey);
+    const canonicalKey = keyMap[normalizedHeader];
+    if (canonicalKey) mapped[canonicalKey] = rawValue;
+  });
+
+  return mapped;
+}
+
 function setupInspectionPage() {
   if (document.body.dataset.page !== 'inspection') return;
 
@@ -1016,9 +1069,10 @@ function setupAdminPanel() {
 
   function applyInspectionExcelRows(rows) {
     const payloads = rows.map((row) => {
-      const payload = normalizeInspectionPayload(row);
+      const mappedRow = remapInspectionExcelRow(row);
+      const payload = normalizeInspectionPayload(mappedRow);
       if (!payload.unit_name && defaultUploadUnit.value) payload.unit_name = defaultUploadUnit.value;
-      if (row.id) payload.id = String(row.id);
+      if (mappedRow.id) payload.id = String(mappedRow.id);
       return payload;
     });
     batchUpsertById('inspections', payloads, 'INSP');
@@ -1052,9 +1106,44 @@ function setupAdminPanel() {
       XLSX.writeFile(wb, 'ATR2026_Users_Template.xlsx');
       return;
     }
-    const ws = XLSX.utils.json_to_sheet([{ id: '', unit_name: 'GCU-1', equipment_type: 'Vessel', equipment_tag_number: 'TAG-001', inspection_type: 'Planned', equipment_name: 'Eq Name', status: 'Scaffolding Prepared', final_status: 'Not Started' }]);
+    const ws = XLSX.utils.json_to_sheet([{
+      id: '',
+      equipment_tag_number: 'TAG-001',
+      unit_name: 'GCU-1',
+      equipment_type: 'Vessel',
+      inspection_type: 'Planned',
+      equipment_name: 'Eq Name',
+      last_inspection_year: '2020',
+      inspection_possible: 'Internal',
+      inspection_date: '2026-01-20',
+      status: 'Scaffolding Prepared',
+      final_status: 'Not Started',
+      remarks: 'Sample remarks',
+      observation: 'Sample observation',
+      recommendation: 'Sample recommendation'
+    }]);
     XLSX.utils.book_append_sheet(wb, ws, 'inspections_template');
     XLSX.writeFile(wb, 'ATR2026_Inspection_Template.xlsx');
+  }
+
+  function exportInspectionFormFields() {
+    const inspections = getCollection('inspections') || [];
+    const rows = inspections.map((row) => {
+      const normalized = normalizeInspectionPayload(row);
+      return INSPECTION_FORM_FIELDS.reduce((acc, key) => {
+        acc[key] = normalized[key] || '';
+        return acc;
+      }, {});
+    });
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(rows.length ? rows : [INSPECTION_FORM_FIELDS.reduce((acc, key) => {
+      acc[key] = '';
+      return acc;
+    }, {})]);
+    XLSX.utils.book_append_sheet(wb, ws, 'inspections_export');
+    XLSX.writeFile(wb, 'ATR2026_Inspections_All_Fields.xlsx');
+    message.textContent = `Inspection export downloaded with ${rows.length} rows.`;
   }
 
   async function exportAllRuntimeData() {
@@ -1069,6 +1158,8 @@ function setupAdminPanel() {
   }
 
   document.getElementById('downloadTemplateBtn').onclick = downloadTemplate;
+  const exportInspectionsBtn = document.getElementById('exportInspectionsBtn');
+  if (exportInspectionsBtn) exportInspectionsBtn.onclick = exportInspectionFormFields;
   const userFilter = document.getElementById('adminUserFilter');
   if (userFilter) userFilter.onchange = renderUsers;
   document.getElementById('bulkUploadBtn').onclick = () => {

@@ -150,6 +150,35 @@ table { width: 100%; border-collapse: collapse; }
 th, td { border-bottom: 1px solid var(--border); padding: 0.6rem; text-align: left; font-size: 0.9rem; }
 th { color: var(--muted); }
 
+.vessel-progress-wrap { border: 2px solid #61b15a; border-radius: 6px; }
+.vessel-progress-table thead th {
+  text-align: center;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.vessel-progress-table thead tr:first-child th {
+  font-size: 1.1rem;
+  font-weight: 700;
+  padding: 0.55rem;
+}
+.vessel-progress-table thead tr:nth-child(2) th {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.vessel-progress-table td,
+.vessel-progress-table tfoot td {
+  text-align: center;
+  border: 1px solid var(--border);
+}
+.vessel-progress-table tbody tr:nth-child(odd) td { background: rgba(148, 163, 184, 0.08); }
+.vessel-progress-table tbody tr:nth-child(even) td { background: rgba(148, 163, 184, 0.14); }
+.vessel-progress-table td:first-child,
+.vessel-progress-table tfoot td:first-child { text-align: left; font-weight: 600; }
+.vessel-progress-table tfoot td {
+  font-weight: 700;
+  background: rgba(148, 163, 184, 0.2);
+}
+
 .admin-grid { display: grid; gap: 1rem; }
 .image-preview, .mini-preview { width: 120px; border-radius: 8px; border: 1px solid var(--field-border); }
 .multi-preview { display: flex; gap: 0.7rem; flex-wrap: wrap; margin-bottom: 1rem; }
