@@ -458,16 +458,34 @@ function setupLogin() {
     });
 }
 
+function normalizeInspectionTypeValue(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'planned') return 'Planned';
+  if (['opportunity', 'opportunity based', 'opportunity-based'].includes(normalized)) return 'Opportunity Based';
+  return String(value || '').trim();
+}
+
+function normalizeInspectionFormValue(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (['boroscopy', 'borescopy'].includes(normalized)) return 'BOROSCOPY';
+  if (normalized === 'internal') return 'INTERNAL';
+  if (normalized === 'external') return 'EXTERNAL';
+  return String(value || '').trim();
+}
+
 function normalizeInspectionPayload(payload) {
+  const normalizedInspectionType = normalizeInspectionTypeValue(payload.inspection_type);
+  const normalizedInspectionForm = normalizeInspectionFormValue(payload.inspection_form || payload.inspection_possible);
   return {
     id: payload.id || '',
     unit_name: payload.unit_name || '',
     equipment_type: payload.equipment_type || '',
     equipment_tag_number: payload.equipment_tag_number || '',
-    inspection_type: payload.inspection_type || '',
+    inspection_type: normalizedInspectionType,
     equipment_name: payload.equipment_name || '',
     last_inspection_year: payload.last_inspection_year || '',
-    inspection_possible: payload.inspection_possible || '',
+    inspection_form: normalizedInspectionForm,
+    inspection_possible: normalizedInspectionForm,
     inspection_date: payload.inspection_date || '',
     status: payload.status || '',
     final_status: payload.final_status || '',
@@ -485,7 +503,7 @@ const INSPECTION_FORM_FIELDS = [
   'inspection_type',
   'equipment_name',
   'last_inspection_year',
-  'inspection_possible',
+  'inspection_form',
   'inspection_date',
   'status',
   'final_status',
@@ -510,8 +528,9 @@ function remapInspectionExcelRow(row = {}) {
     inspectiontype: 'inspection_type',
     equipmentname: 'equipment_name',
     lastinspectionyear: 'last_inspection_year',
-    inspectionpossible: 'inspection_possible',
-    inspectionscope: 'inspection_possible',
+    inspectionpossible: 'inspection_form',
+    inspectionscope: 'inspection_form',
+    inspectionform: 'inspection_form',
     inspectiondate: 'inspection_date',
     status: 'status',
     finalstatus: 'final_status',
@@ -643,7 +662,8 @@ function setupInspectionPage() {
         const row = getCollection('inspections').find((r) => r.id === btn.dataset.id);
         if (!row) return;
         editId = row.id;
-        Object.entries(row).forEach(([k, v]) => {
+        const normalized = normalizeInspectionPayload(row);
+        Object.entries(normalized).forEach(([k, v]) => {
           const el = document.getElementById(k);
           if (el) el.value = v || '';
         });
@@ -665,7 +685,7 @@ function setupInspectionPage() {
       inspection_type: document.getElementById('inspection_type').value,
       equipment_name: document.getElementById('equipment_name').value,
       last_inspection_year: document.getElementById('last_inspection_year').value,
-      inspection_possible: document.getElementById('inspection_possible').value,
+      inspection_form: document.getElementById('inspection_form').value,
       inspection_date: document.getElementById('inspection_date').value,
       status: document.getElementById('status').value,
       final_status: document.getElementById('final_status').value,
@@ -1114,7 +1134,7 @@ function setupAdminPanel() {
       inspection_type: 'Planned',
       equipment_name: 'Eq Name',
       last_inspection_year: '2020',
-      inspection_possible: 'Internal',
+      inspection_form: 'BOROSCOPY',
       inspection_date: '2026-01-20',
       status: 'Scaffolding Prepared',
       final_status: 'Not Started',
