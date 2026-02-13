@@ -233,7 +233,7 @@ async function readCloudRuntimeDataFromPath(path) {
 
   const meta = metaSnap.data();
   if (meta.storage_format === 'chunked-v2') {
-    const chunksSnap = await runtimeChunksRef(path).get();
+    const chunksSnap = await runtimeChunksRef().get();
     if (chunksSnap.empty && Object.values(meta.counts || {}).some((count) => Number(count) > 0)) {
       throw new Error('Cloud runtime chunks are temporarily unavailable. Please retry sync.');
     }
