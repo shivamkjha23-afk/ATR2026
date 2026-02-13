@@ -75,9 +75,21 @@ async function ensureFirebaseSession() {
 
   authReadyPromise = (async () => {
     try {
-      const result = await firebaseAuth.signInAnonymously();
+      const user = await new Promise((resolve, reject) => {
+        const unsubscribe = firebaseAuth.onAuthStateChanged((currentUser) => {
+          unsubscribe();
+          if (currentUser) {
+            resolve(currentUser);
+            return;
+          }
+          reject(new Error('Cloud sync requires Google sign-in. Please sign in with Google to use Firebase data.'));
+        }, (err) => {
+          unsubscribe();
+          reject(err);
+        });
+      });
       setSyncStatus({ ok: true, message: 'Connected to Firebase cloud.' });
-      return result.user;
+      return user;
     } catch (err) {
       setSyncStatus({ ok: false, message: `Firebase auth failed: ${err.message}` });
       throw err;
@@ -230,7 +242,7 @@ function requestAccess(user) {
   saveCollection('users', users);
 }
 
-function approveUser(username, approvedBy = 'subhshivam22@gmail.com') {
+function approveUser(username, approvedBy = 'system') {
   const normalizedUsername = normalizeUsername(username);
   const users = getCollection('users').map((u) => (
     normalizeUsername(u.username) === normalizedUsername ? withAudit({ ...u, approved: true, approved_by: approvedBy }, true) : u
@@ -239,10 +251,10 @@ function approveUser(username, approvedBy = 'subhshivam22@gmail.com') {
 }
 
 function ensureDefaultAdmin(db) {
-  if (!db.users.some((u) => normalizeUsername(u.username) === 'subhshivam22@gmail.com')) {
+  if (!db.users.some((u) => normalizeUsername(u.username) === 'shivam.jha')) {
     db.users.push(withAudit({
       id: generateId('USR'),
-      username: 'subhshivam22@gmail.com',
+      username: 'shivam.jha',
       password: 'admin@123',
       role: 'admin',
       approved: true,
