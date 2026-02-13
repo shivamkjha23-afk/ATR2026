@@ -1162,8 +1162,8 @@ function setupAdminPanel() {
       return acc;
     }, {})]);
     XLSX.utils.book_append_sheet(wb, ws, 'inspections_export');
-    XLSX.writeFile(wb, 'ATR2026_Inspections_All_Fields.xlsx');
-    message.textContent = `Inspection export downloaded with ${rows.length} rows.`;
+    XLSX.writeFile(wb, 'ATR2026_Inspection_Upload_Format_With_Data.xlsx');
+    message.textContent = `Inspection upload format exported with ${rows.length} current rows.`;
   }
 
   async function exportAllRuntimeData() {
@@ -1177,7 +1177,6 @@ function setupAdminPanel() {
     message.textContent = 'Firebase sync complete.';
   }
 
-  document.getElementById('downloadTemplateBtn').onclick = downloadTemplate;
   const exportInspectionsBtn = document.getElementById('exportInspectionsBtn');
   if (exportInspectionsBtn) exportInspectionsBtn.onclick = exportInspectionFormFields;
   const userFilter = document.getElementById('adminUserFilter');
