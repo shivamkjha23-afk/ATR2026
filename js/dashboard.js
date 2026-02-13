@@ -41,8 +41,8 @@ function computeSummary(rows = [], opts = {}) {
   }
 
   if (inspectionMode) {
-    const planned = rows.filter((r) => r.inspection_type === 'Planned').length;
-    const opportunity = rows.filter((r) => ['Opportunity', 'Opportunity Based'].includes(r.inspection_type)).length;
+    const planned = rows.filter((r) => normalizeInspectionType(r.inspection_type) === 'planned').length;
+    const opportunity = rows.filter((r) => normalizeInspectionType(r.inspection_type) === 'opportunity based').length;
     const inProgress = rows.filter((r) => r.status === 'In Progress' || r.final_status === 'In Progress').length;
     const completed = rows.filter((r) => r.status === 'Completed' || r.final_status === 'Completed').length;
     return {
@@ -98,7 +98,10 @@ function renderBarChart(canvasId, labels, plannedData, completedData, percentDat
 
 
 function normalizeInspectionType(value) {
-  return String(value || '').trim().toLowerCase();
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'planned') return 'planned';
+  if (['opportunity', 'opportunity based', 'opportunity-based'].includes(normalized)) return 'opportunity based';
+  return normalized;
 }
 
 function isCompletedInspection(row) {
@@ -109,8 +112,20 @@ function isInProgressInspection(row) {
   return row.status === 'In Progress' || row.final_status === 'In Progress';
 }
 
-function normalizeInspectionScope(value) {
-  return String(value || '').trim().toLowerCase();
+function normalizeInspectionForm(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (['boroscopy', 'borescopy'].includes(normalized)) return 'boroscopy';
+  if (normalized === 'internal') return 'internal';
+  if (normalized === 'external') return 'external';
+  return normalized;
+}
+
+function inspectionFormLabel(value) {
+  const normalized = normalizeInspectionForm(value);
+  if (normalized === 'boroscopy') return 'BOROSCOPY';
+  if (normalized === 'internal') return 'INTERNAL';
+  if (normalized === 'external') return 'EXTERNAL';
+  return String(value || '').trim();
 }
 
 function renderVesselProgressTable(rows = []) {
@@ -120,8 +135,8 @@ function renderVesselProgressTable(rows = []) {
 
   const metricsByUnit = units.map((unit) => {
     const unitRows = grouped[unit];
-    const plannedRows = unitRows.filter((r) => r.inspection_type === 'Planned');
-    const opportunityRows = unitRows.filter((r) => ['Opportunity', 'Opportunity Based'].includes(r.inspection_type));
+    const plannedRows = unitRows.filter((r) => normalizeInspectionType(r.inspection_type) === 'planned');
+    const opportunityRows = unitRows.filter((r) => normalizeInspectionType(r.inspection_type) === 'opportunity based');
 
     return {
       unit,
@@ -267,18 +282,18 @@ function sectionInspection(title, type, chartId, options = {}) {
   const includeOpportunity = options.includeOpportunity === true;
   const enableInspectionScopeFilter = options.enableInspectionScopeFilter === true;
   const selectedInspectionScopeFilter = options.inspectionScopeFilter || 'All';
-  const normalizedSelectedScope = normalizeInspectionScope(selectedInspectionScopeFilter);
+  const normalizedSelectedForm = normalizeInspectionForm(selectedInspectionScopeFilter);
 
   const baseRows = getCollection('inspections').filter((r) => r.equipment_type === type);
   const inspectionScopeOptions = ['All', ...Array.from(new Set(baseRows
-    .map((r) => String(r.inspection_possible || '').trim())
+    .map((r) => inspectionFormLabel(r.inspection_form || r.inspection_possible))
     .filter(Boolean)))
     .sort((a, b) => a.localeCompare(b))
   ];
 
-  const source = normalizedSelectedScope === 'all'
+  const source = normalizedSelectedForm === 'all'
     ? baseRows
-    : baseRows.filter((r) => normalizeInspectionScope(r.inspection_possible) === normalizedSelectedScope);
+    : baseRows.filter((r) => normalizeInspectionForm(r.inspection_form || r.inspection_possible) === normalizedSelectedForm);
 
   const summary = computeSummary(source, { mode: 'inspection' });
   const grouped = groupByUnit(source);
@@ -301,7 +316,7 @@ function sectionInspection(title, type, chartId, options = {}) {
 
   const filterHtml = enableInspectionScopeFilter
     ? `<div class="filter-tabs dashboard-filter-tabs">${inspectionScopeOptions.map((inspectionScope) => {
-      const active = normalizeInspectionScope(inspectionScope) === normalizedSelectedScope;
+      const active = normalizeInspectionForm(inspectionScope) === normalizedSelectedForm;
       return `<button type="button" class="btn tab-btn vessel-scope-filter-btn ${active ? 'active' : ''}" data-inspection-scope="${inspectionScope}">${inspectionScope}</button>`;
     }).join('')}</div>`
     : '';
