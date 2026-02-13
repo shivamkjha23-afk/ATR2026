@@ -1,4 +1,5 @@
 const DASHBOARD_CHARTS = {};
+const DASHBOARD_STATE = { vesselTypeFilter: 'All' };
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -95,6 +96,52 @@ function renderBarChart(canvasId, labels, plannedData, completedData, percentDat
   });
 }
 
+
+function normalizeInspectionType(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function renderInspectionChartWithOpportunity(canvasId, labels, plannedData, opportunityData, completedData) {
+  const baseData = plannedData.map((v, idx) => v + (opportunityData[idx] || 0));
+  const percentData = labels.map((_, idx) => {
+    const denom = baseData[idx] || 0;
+    return denom ? Number(((completedData[idx] / denom) * 100).toFixed(1)) : 0;
+  });
+
+  const canvas = document.getElementById(canvasId);
+  if (!canvas || typeof Chart === 'undefined') return;
+  if (DASHBOARD_CHARTS[canvasId]) DASHBOARD_CHARTS[canvasId].destroy();
+
+  DASHBOARD_CHARTS[canvasId] = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Planned', data: plannedData, backgroundColor: '#0ea5e9' },
+        { label: 'Opportunity Based', data: opportunityData, backgroundColor: '#f59e0b' },
+        { label: 'Completed', data: completedData, backgroundColor: '#22c55e' },
+        {
+          label: '% Completed',
+          data: percentData,
+          type: 'line',
+          yAxisID: 'y1',
+          borderColor: '#a855f7',
+          backgroundColor: '#a855f7',
+          tension: 0.2
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      scales: {
+        y: { beginAtZero: true },
+        y1: { beginAtZero: true, max: 100, position: 'right', grid: { drawOnChartArea: false } }
+      }
+    }
+  });
+}
+
 function renderSummaryCards(cards = []) {
   return `<section class="cards-grid">${cards.map((c) => `<article class="card"><h3>${c.label}</h3><p>${c.value}</p></article>`).join('')}</section>`;
 }
@@ -112,8 +159,23 @@ function renderUnitTable(headers, rows) {
   `;
 }
 
-function sectionInspection(title, type, chartId, includeOpportunity = false) {
-  const source = getCollection('inspections').filter((r) => r.equipment_type === type);
+function sectionInspection(title, type, chartId, options = {}) {
+  const includeOpportunity = options.includeOpportunity === true;
+  const enableTypeFilter = options.enableTypeFilter === true;
+  const selectedTypeFilter = options.typeFilter || 'All';
+  const normalizedSelectedType = normalizeInspectionType(selectedTypeFilter);
+
+  const baseRows = getCollection('inspections').filter((r) => r.equipment_type === type);
+  const inspectionTypeOptions = ['All', ...Array.from(new Set(baseRows
+    .map((r) => String(r.inspection_type || '').trim())
+    .filter(Boolean)))
+    .sort((a, b) => a.localeCompare(b))
+  ];
+
+  const source = normalizedSelectedType === 'all'
+    ? baseRows
+    : baseRows.filter((r) => normalizeInspectionType(r.inspection_type) === normalizedSelectedType);
+
   const summary = computeSummary(source, { mode: 'inspection' });
   const grouped = groupByUnit(source);
   const units = Object.keys(grouped);
@@ -122,30 +184,49 @@ function sectionInspection(title, type, chartId, includeOpportunity = false) {
     const unitRows = grouped[unit];
     const unitSummary = computeSummary(unitRows, { mode: 'inspection' });
     return includeOpportunity
-      ? [unit, unitSummary.planned + unitSummary.opportunity, unitSummary.todayCompleted, unitSummary.completed]
+      ? [unit, unitSummary.planned, unitSummary.opportunity, unitSummary.todayCompleted, unitSummary.completed]
       : [unit, unitSummary.planned, unitSummary.completed, unitSummary.todayCompleted];
   });
 
   const cards = [
     { label: 'Total Planned', value: summary.planned },
-    includeOpportunity ? { label: 'Total Opportunity', value: summary.opportunity } : null,
+    includeOpportunity ? { label: 'Total Opportunity Based', value: summary.opportunity } : null,
     { label: 'In Progress', value: summary.inProgress },
     { label: 'Completed', value: summary.completed }
   ].filter(Boolean);
 
+  const filterHtml = enableTypeFilter
+    ? `<div class="filter-tabs dashboard-filter-tabs">${inspectionTypeOptions.map((inspectionType) => {
+      const active = normalizeInspectionType(inspectionType) === normalizedSelectedType;
+      return `<button type="button" class="btn tab-btn vessel-type-filter-btn ${active ? 'active' : ''}" data-inspection-type="${inspectionType}">${inspectionType}</button>`;
+    }).join('')}</div>`
+    : '';
+
+  const tableHeaders = includeOpportunity
+    ? ['Unit', 'Planned', 'Opportunity Based', 'Completed Today', 'Total Completed']
+    : ['Unit', 'Total Planned', 'Total Completed', `Today\'s Completed`];
+
   const sectionHtml = `
     <section class="table-card">
       <h2>${title}</h2>
+      ${filterHtml}
       ${renderSummaryCards(cards)}
-      ${renderUnitTable(includeOpportunity ? ['Unit', 'Planned + Opportunity', 'Completed Today', 'Total Completed'] : ['Unit', 'Total Planned', 'Total Completed', `Today\'s Completed`], tableRows)}
+      ${renderUnitTable(tableHeaders, tableRows)}
       <article class="chart-card"><canvas id="${chartId}"></canvas></article>
     </section>
   `;
 
-  const plannedData = units.map((u) => {
-    const unitSummary = computeSummary(grouped[u], { mode: 'inspection' });
-    return includeOpportunity ? unitSummary.planned + unitSummary.opportunity : unitSummary.planned;
-  });
+  if (includeOpportunity) {
+    const plannedData = units.map((u) => computeSummary(grouped[u], { mode: 'inspection' }).planned);
+    const opportunityData = units.map((u) => computeSummary(grouped[u], { mode: 'inspection' }).opportunity);
+    const completedData = units.map((u) => computeSummary(grouped[u], { mode: 'inspection' }).completed);
+    return {
+      html: sectionHtml,
+      chart: () => renderInspectionChartWithOpportunity(chartId, units, plannedData, opportunityData, completedData)
+    };
+  }
+
+  const plannedData = units.map((u) => computeSummary(grouped[u], { mode: 'inspection' }).planned);
   const completedData = units.map((u) => computeSummary(grouped[u], { mode: 'inspection' }).completed);
   const percentData = units.map((u, idx) => {
     const planned = plannedData[idx] || 0;
@@ -208,9 +289,13 @@ function renderDashboard() {
   const root = document.getElementById('dashboardRoot');
   if (!root) return;
 
-  const vessel = sectionInspection('Vessel Dashboard', 'Vessel', 'vesselAnalyticsChart', true);
-  const pipeline = sectionInspection('Pipeline Dashboard', 'Pipeline', 'pipelineAnalyticsChart', false);
-  const steamTrap = sectionInspection('Steam Trap Dashboard', 'Steam Trap', 'steamTrapAnalyticsChart', false);
+  const vessel = sectionInspection('Vessel Dashboard', 'Vessel', 'vesselAnalyticsChart', {
+    includeOpportunity: true,
+    enableTypeFilter: true,
+    typeFilter: DASHBOARD_STATE.vesselTypeFilter
+  });
+  const pipeline = sectionInspection('Pipeline Dashboard', 'Pipeline', 'pipelineAnalyticsChart');
+  const steamTrap = sectionInspection('Steam Trap Dashboard', 'Steam Trap', 'steamTrapAnalyticsChart');
   const requisition = sectionRequisitionRT();
 
   root.innerHTML = [
@@ -225,6 +310,14 @@ function renderDashboard() {
   pipeline.chart();
   steamTrap.chart();
   requisition.chart();
+
+  const vesselFilterButtons = root.querySelectorAll('.vessel-type-filter-btn');
+  vesselFilterButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      DASHBOARD_STATE.vesselTypeFilter = btn.dataset.inspectionType || 'All';
+      renderDashboard();
+    });
+  });
 
   const obsSection = document.getElementById('observationDashboardLink');
   if (obsSection) {
