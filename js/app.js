@@ -634,11 +634,11 @@ function setupInspectionPage() {
   };
 
   document.getElementById('markSelectedCompletedBtn').onclick = () => {
-    const ids = Array.from(document.querySelectorAll('.inspection-selector:checked')).map((i) => i.dataset.id);
-    ids.forEach((id) => {
-      const row = getCollection('inspections').find((r) => r.id === id);
-      if (row) upsertById('inspections', { ...row, final_status: 'Completed' }, 'INSP');
-    });
+    const ids = new Set(Array.from(document.querySelectorAll('.inspection-selector:checked')).map((i) => i.dataset.id));
+    if (!ids.size) return;
+    const rows = getCollection('inspections');
+    const updates = rows.filter((row) => ids.has(row.id)).map((row) => ({ ...row, final_status: 'Completed' }));
+    batchUpsertById('inspections', updates, 'INSP');
     renderInspectionList();
   };
 
@@ -1015,12 +1015,13 @@ function setupAdminPanel() {
   }
 
   function applyInspectionExcelRows(rows) {
-    rows.forEach((row) => {
+    const payloads = rows.map((row) => {
       const payload = normalizeInspectionPayload(row);
       if (!payload.unit_name && defaultUploadUnit.value) payload.unit_name = defaultUploadUnit.value;
       if (row.id) payload.id = String(row.id);
-      upsertById('inspections', payload, 'INSP');
+      return payload;
     });
+    batchUpsertById('inspections', payloads, 'INSP');
   }
 
   function applyUsersExcelRows(rows) {
@@ -1173,6 +1174,9 @@ window.addEventListener('DOMContentLoaded', async () => {
   setupDashboard();
 
   window.addEventListener('atr-db-updated', () => {
-    if (document.body.dataset.page !== 'login') window.location.reload();
+    if (document.body.dataset.page === 'login') return;
+    if (typeof setSyncStatus === 'function') {
+      setSyncStatus({ ok: true, message: 'Cloud update received. Refresh page to load the newest view.' });
+    }
   });
 });
