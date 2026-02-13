@@ -32,13 +32,14 @@
         <section class="table-card">
           <div class="list-actions">
             <h2>Requisitions</h2>
-            <button class="btn btn-primary" id="openRequisitionFormBtn" type="button">Add New</button>
+            <button class="btn btn-primary" id="openRequisitionFormBtn" type="button" aria-controls="requisitionFormPanel" aria-expanded="false">Add New</button>
           </div>
           <div class="table-wrap">
             <table>
+              <caption class="sr-only">List of requisition records and action controls</caption>
               <thead>
                 <tr>
-                  <th>Tag No</th><th>Job Description</th><th>Location</th><th>Unit</th><th>Type</th><th>Result</th><th>Status 2</th><th>Remarks</th><th>Action</th>
+                  <th scope="col">Tag No</th><th scope="col">Job Description</th><th scope="col">Location</th><th scope="col">Unit</th><th scope="col">Type</th><th scope="col">Result</th><th scope="col">Status 2</th><th scope="col">Remarks</th><th scope="col">Action</th>
                 </tr>
               </thead>
               <tbody id="requisitionTableBody"></tbody>
@@ -47,7 +48,7 @@
         </section>
 
         <section class="form-card hidden" id="requisitionFormPanel">
-          <h2>Requisition Form</h2>
+          <h2 id="requisitionFormTitle">Requisition Form</h2>
           <form id="requisitionForm" class="form-grid">
             <label>Tag No <input id="reqTag" required /></label>
             <label>Module
@@ -76,7 +77,7 @@
             </label>
             <label class="full-width">Remarks <textarea id="reqRemarks"></textarea></label>
             <div class="actions full-width">
-              <button class="btn btn-primary" type="submit">Save Requisition</button>
+              <button class="btn btn-primary" id="requisitionSubmitBtn" type="submit">Save Requisition</button>
               <button class="btn" id="closeRequisitionFormBtn" type="button">Close Form</button>
             </div>
           </form>

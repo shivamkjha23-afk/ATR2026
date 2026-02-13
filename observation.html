@@ -31,13 +31,14 @@
         <section class="table-card">
           <div class="list-actions">
             <h2>Observation List</h2>
-            <button class="btn btn-primary" id="openObservationFormBtn" type="button">Add New Observation</button>
+            <button class="btn btn-primary" id="openObservationFormBtn" type="button" aria-controls="observationFormPanel" aria-expanded="false">Add New Observation</button>
           </div>
           <div class="table-wrap">
             <table>
+              <caption class="sr-only">List of observation records with status and actions</caption>
               <thead>
                 <tr>
-                  <th>Tag</th><th>Unit</th><th>Location</th><th>Observation</th><th>Recommendation</th><th>Status</th><th>Image</th><th>Actions</th>
+                  <th scope="col">Tag</th><th scope="col">Unit</th><th scope="col">Location</th><th scope="col">Observation</th><th scope="col">Recommendation</th><th scope="col">Status</th><th scope="col">Image</th><th scope="col">Actions</th>
                 </tr>
               </thead>
               <tbody id="observationsTableBody"></tbody>
@@ -45,8 +46,8 @@
           </div>
         </section>
 
-        <section class="form-card hidden" id="observationFormPanel">
-          <h2>Add Observation</h2>
+        <section class="form-card hidden" id="observationFormPanel" aria-live="polite">
+          <h2 id="observationFormTitle">Add Observation</h2>
           <form id="observationForm" class="form-grid">
             <label>Completed Inspection Tag
               <select id="obsInspectionTag">
@@ -72,7 +73,7 @@
             <label class="full-width">Image Uploads <input type="file" id="obsImage" accept="image/*" multiple /></label>
             <div class="multi-preview full-width" id="imagePreviewList"></div>
             <div class="actions full-width">
-              <button class="btn btn-primary" type="submit">Save</button>
+              <button class="btn btn-primary" id="observationSubmitBtn" type="submit">Save Observation</button>
               <button class="btn" id="closeObservationFormBtn" type="button">Close Form</button>
             </div>
           </form>
