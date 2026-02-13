@@ -24,10 +24,14 @@ const DB_TEMPLATE = {
   _meta: { last_updated: '' }
 };
 
-const RUNTIME_DOC_PATH = { collection: 'atr2026', id: 'runtime' };
+const PRIMARY_RUNTIME_DOC_PATH = { collection: 'runtime', id: 'runtime' };
+const ALT_RUNTIME_DOC_PATH = { collection: 'runtime', id: 'runtime_chunks' };
+const LEGACY_RUNTIME_DOC_PATH = { collection: 'atr2026', id: 'runtime' };
 const RUNTIME_CHUNKS_COLLECTION = 'runtime_chunks';
 const RUNTIME_COLLECTION_KEYS = ['inspections', 'observations', 'requisitions', 'users', 'images'];
 const MAX_CHUNK_CHARS = 350000;
+const MAX_BATCH_OPS = 450;
+const MAX_BATCH_BYTES = 8 * 1024 * 1024;
 
 let firebaseReady = false;
 let firebaseApp = null;
@@ -40,6 +44,7 @@ let syncPending = false;
 let suppressSync = false;
 let realtimeStarted = false;
 let authReadyPromise = null;
+let activeRuntimeDocPath = PRIMARY_RUNTIME_DOC_PATH;
 
 function nowStamp() {
   return new Date().toISOString();
@@ -66,13 +71,26 @@ function bootFirebase() {
   firebaseReady = true;
 }
 
-function runtimeDocRef() {
+function runtimeDocRef(path = PRIMARY_RUNTIME_DOC_PATH) {
   bootFirebase();
-  return firebaseDb.collection(RUNTIME_DOC_PATH.collection).doc(RUNTIME_DOC_PATH.id);
+  return firebaseDb.collection(path.collection).doc(path.id);
 }
 
-function runtimeChunksRef() {
-  return runtimeDocRef().collection(RUNTIME_CHUNKS_COLLECTION);
+function runtimeChunksRef(path = PRIMARY_RUNTIME_DOC_PATH) {
+  return runtimeDocRef(path).collection(RUNTIME_CHUNKS_COLLECTION);
+}
+
+function isPermissionDeniedError(err) {
+  return err?.code === 'permission-denied' || /missing or insufficient permissions/i.test(String(err?.message || ''));
+}
+
+function sameRuntimePath(a, b) {
+  return a?.collection === b?.collection && a?.id === b?.id;
+}
+
+function runtimePathCandidates() {
+  const raw = [activeRuntimeDocPath, PRIMARY_RUNTIME_DOC_PATH, ALT_RUNTIME_DOC_PATH, LEGACY_RUNTIME_DOC_PATH];
+  return raw.filter((path, idx) => raw.findIndex((p) => sameRuntimePath(p, path)) === idx);
 }
 
 function chunkRowsBySize(rows = []) {
@@ -128,27 +146,63 @@ function buildCloudMetaPayload(db) {
   };
 }
 
-async function replaceCloudChunks(db) {
-  const chunks = runtimeChunksRef();
-  const existing = await chunks.get();
+function estimateWriteBytes(docId, payload) {
+  return String(docId || '').length + JSON.stringify(payload || {}).length + 256;
+}
 
-  if (!existing.empty) {
-    let batch = firebaseDb.batch();
-    let ops = 0;
-    for (const docSnap of existing.docs) {
-      batch.delete(docSnap.ref);
-      ops += 1;
-      if (ops >= 400) {
-        await batch.commit();
-        batch = firebaseDb.batch();
-        ops = 0;
-      }
-    }
-    if (ops) await batch.commit();
-  }
+async function commitSetDocsInBatches(collectionRef, docs = []) {
+  if (!docs.length) return;
 
   let batch = firebaseDb.batch();
   let ops = 0;
+  let bytes = 0;
+
+  for (const doc of docs) {
+    const payloadBytes = estimateWriteBytes(doc.id, doc.payload);
+    if (ops > 0 && (ops >= MAX_BATCH_OPS || (bytes + payloadBytes) >= MAX_BATCH_BYTES)) {
+      await batch.commit();
+      batch = firebaseDb.batch();
+      ops = 0;
+      bytes = 0;
+    }
+
+    batch.set(collectionRef.doc(doc.id), doc.payload, { merge: false });
+    ops += 1;
+    bytes += payloadBytes;
+  }
+
+  if (ops) await batch.commit();
+}
+
+async function commitDeleteDocsInBatches(docs = []) {
+  if (!docs.length) return;
+
+  let batch = firebaseDb.batch();
+  let ops = 0;
+
+  for (const docSnap of docs) {
+    if (ops >= MAX_BATCH_OPS) {
+      await batch.commit();
+      batch = firebaseDb.batch();
+      ops = 0;
+    }
+
+    batch.delete(docSnap.ref);
+    ops += 1;
+  }
+
+  if (ops) await batch.commit();
+}
+
+async function replaceCloudChunks(db, path = activeRuntimeDocPath) {
+  const chunks = runtimeChunksRef(path);
+  const existing = await chunks.get();
+
+  if (!existing.empty) {
+    await commitDeleteDocsInBatches(existing.docs);
+  }
+
+  const nextDocs = [];
 
   for (const key of RUNTIME_COLLECTION_KEYS) {
     const docs = createChunkDocsForCollection(key, db[key]);
@@ -158,19 +212,10 @@ async function replaceCloudChunks(db) {
         : { kind: 'array', key, order: 0, rows: [] };
       docs.push({ id: `${key}_0`, payload: emptyPayload });
     }
-
-    for (const doc of docs) {
-      batch.set(chunks.doc(doc.id), doc.payload, { merge: false });
-      ops += 1;
-      if (ops >= 400) {
-        await batch.commit();
-        batch = firebaseDb.batch();
-        ops = 0;
-      }
-    }
+    nextDocs.push(...docs);
   }
 
-  if (ops) await batch.commit();
+  await commitSetDocsInBatches(chunks, nextDocs);
 }
 
 
@@ -197,13 +242,16 @@ function restoreRuntimeFromChunkDocs(chunkDocs = []) {
   return next;
 }
 
-async function readCloudRuntimeData() {
-  const metaSnap = await runtimeDocRef().get();
+async function readCloudRuntimeDataFromPath(path) {
+  const metaSnap = await runtimeDocRef(path).get();
   if (!metaSnap.exists || !metaSnap.data()) return null;
 
   const meta = metaSnap.data();
   if (meta.storage_format === 'chunked-v2') {
-    const chunksSnap = await runtimeChunksRef().get();
+    const chunksSnap = await runtimeChunksRef(path).get();
+    if (chunksSnap.empty && Object.values(meta.counts || {}).some((count) => Number(count) > 0)) {
+      throw new Error('Cloud runtime chunks are temporarily unavailable. Please retry sync.');
+    }
     const restored = restoreRuntimeFromChunkDocs(chunksSnap.docs || []);
     restored._meta = meta._meta || { last_updated: nowStamp() };
     return restored;
@@ -212,10 +260,51 @@ async function readCloudRuntimeData() {
   return clone({ ...DB_TEMPLATE, ...meta });
 }
 
-async function writeCloudRuntimeData(db) {
+async function readCloudRuntimeData() {
+  let permissionErr = null;
+  for (const path of runtimePathCandidates()) {
+    try {
+      const data = await readCloudRuntimeDataFromPath(path);
+      if (data) {
+        activeRuntimeDocPath = path;
+        return data;
+      }
+    } catch (err) {
+      if (isPermissionDeniedError(err)) {
+        permissionErr = err;
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  if (permissionErr) throw permissionErr;
+  return null;
+}
+
+async function writeCloudRuntimeDataToPath(db, path) {
   const normalizedDb = clone({ ...DB_TEMPLATE, ...db });
-  await replaceCloudChunks(normalizedDb);
-  await runtimeDocRef().set(buildCloudMetaPayload(normalizedDb), { merge: false });
+  await replaceCloudChunks(normalizedDb, path);
+  await runtimeDocRef(path).set(buildCloudMetaPayload(normalizedDb), { merge: false });
+  activeRuntimeDocPath = path;
+}
+
+async function writeCloudRuntimeData(db) {
+  let permissionErr = null;
+  for (const path of runtimePathCandidates()) {
+    try {
+      await writeCloudRuntimeDataToPath(db, path);
+      return;
+    } catch (err) {
+      if (isPermissionDeniedError(err)) {
+        permissionErr = err;
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  if (permissionErr) throw permissionErr;
 }
 
 async function ensureFirebaseSession() {
@@ -521,6 +610,7 @@ async function pullCloudToLocalIfNewer(config = getCloudConfig()) {
     suppressSync = true;
     runtimeDB = clone({ ...DB_TEMPLATE, ...remote });
     suppressSync = false;
+    persistLocalCache();
     window.dispatchEvent(new CustomEvent('atr-db-updated'));
     setSyncStatus({ ok: true, message: 'Pulled latest data from Firebase.' });
   }
@@ -554,7 +644,7 @@ function startRealtimeSync() {
   if (!config.enabled) return;
 
   ensureFirebaseSession()
-    .then(() => runtimeDocRef().onSnapshot(async (snap) => {
+    .then(() => runtimeDocRef(activeRuntimeDocPath).onSnapshot(async (snap) => {
     if (!snap.exists || !snap.data()) return;
     const remote = await readCloudRuntimeData();
     if (!remote) return;
@@ -566,6 +656,7 @@ function startRealtimeSync() {
       suppressSync = true;
       runtimeDB = clone({ ...DB_TEMPLATE, ...remote });
       suppressSync = false;
+      persistLocalCache();
       window.dispatchEvent(new CustomEvent('atr-db-updated'));
     }
   }, (err) => {
