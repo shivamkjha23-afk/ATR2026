@@ -1118,6 +1118,34 @@ function setupAdminPanel() {
     saveCollection('users', users.map((u) => withAudit(u, true)));
   }
 
+  function downloadTemplate() {
+    const wb = XLSX.utils.book_new();
+    if (uploadTypeSelect.value === 'users') {
+      const ws = XLSX.utils.json_to_sheet([{ username: 'new.user', password: 'pass@123', role: 'inspector', approved: false, request_date: '2026-01-20', approved_by: '' }]);
+      XLSX.utils.book_append_sheet(wb, ws, 'users_template');
+      XLSX.writeFile(wb, 'ATR2026_Users_Template.xlsx');
+      return;
+    }
+    const ws = XLSX.utils.json_to_sheet([{
+      id: '',
+      equipment_tag_number: 'TAG-001',
+      unit_name: 'GCU-1',
+      equipment_type: 'Vessel',
+      inspection_type: 'Planned',
+      equipment_name: 'Eq Name',
+      last_inspection_year: '2020',
+      inspection_form: 'BOROSCOPY',
+      inspection_date: '2026-01-20',
+      status: 'Scaffolding Prepared',
+      final_status: 'Not Started',
+      remarks: 'Sample remarks',
+      observation: 'Sample observation',
+      recommendation: 'Sample recommendation'
+    }]);
+    XLSX.utils.book_append_sheet(wb, ws, 'inspections_template');
+    XLSX.writeFile(wb, 'ATR2026_Inspection_Template.xlsx');
+  }
+
   function exportInspectionFormFields() {
     const inspections = getCollection('inspections') || [];
     const rows = inspections.map((row) => {
