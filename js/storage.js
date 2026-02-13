@@ -24,7 +24,8 @@ const DB_TEMPLATE = {
   _meta: { last_updated: '' }
 };
 
-const RUNTIME_DOC_PATH = { collection: 'atr2026', id: 'runtime' };
+const PRIMARY_RUNTIME_DOC_PATH = { collection: 'runtime', id: 'runtime' };
+const LEGACY_RUNTIME_DOC_PATH = { collection: 'atr2026', id: 'runtime' };
 const RUNTIME_CHUNKS_COLLECTION = 'runtime_chunks';
 const RUNTIME_COLLECTION_KEYS = ['inspections', 'observations', 'requisitions', 'users', 'images'];
 const MAX_CHUNK_CHARS = 350000;
@@ -68,13 +69,13 @@ function bootFirebase() {
   firebaseReady = true;
 }
 
-function runtimeDocRef() {
+function runtimeDocRef(path = PRIMARY_RUNTIME_DOC_PATH) {
   bootFirebase();
-  return firebaseDb.collection(RUNTIME_DOC_PATH.collection).doc(RUNTIME_DOC_PATH.id);
+  return firebaseDb.collection(path.collection).doc(path.id);
 }
 
-function runtimeChunksRef() {
-  return runtimeDocRef().collection(RUNTIME_CHUNKS_COLLECTION);
+function runtimeChunksRef(path = PRIMARY_RUNTIME_DOC_PATH) {
+  return runtimeDocRef(path).collection(RUNTIME_CHUNKS_COLLECTION);
 }
 
 function chunkRowsBySize(rows = []) {
@@ -226,8 +227,8 @@ function restoreRuntimeFromChunkDocs(chunkDocs = []) {
   return next;
 }
 
-async function readCloudRuntimeData() {
-  const metaSnap = await runtimeDocRef().get();
+async function readCloudRuntimeDataFromPath(path) {
+  const metaSnap = await runtimeDocRef(path).get();
   if (!metaSnap.exists || !metaSnap.data()) return null;
 
   const meta = metaSnap.data();
@@ -242,6 +243,17 @@ async function readCloudRuntimeData() {
   }
 
   return clone({ ...DB_TEMPLATE, ...meta });
+}
+
+async function readCloudRuntimeData() {
+  try {
+    const primary = await readCloudRuntimeDataFromPath(PRIMARY_RUNTIME_DOC_PATH);
+    if (primary) return primary;
+  } catch (err) {
+    if (err?.code !== 'permission-denied') throw err;
+  }
+
+  return readCloudRuntimeDataFromPath(LEGACY_RUNTIME_DOC_PATH);
 }
 
 async function writeCloudRuntimeData(db) {
@@ -587,7 +599,7 @@ function startRealtimeSync() {
   if (!config.enabled) return;
 
   ensureFirebaseSession()
-    .then(() => runtimeDocRef().onSnapshot(async (snap) => {
+    .then(() => runtimeDocRef(PRIMARY_RUNTIME_DOC_PATH).onSnapshot(async (snap) => {
     if (!snap.exists || !snap.data()) return;
     const remote = await readCloudRuntimeData();
     if (!remote) return;
