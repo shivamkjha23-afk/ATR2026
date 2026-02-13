@@ -1269,13 +1269,14 @@ function setupDashboard() {
 window.addEventListener('DOMContentLoaded', async () => {
   applyTheme();
   setupThemeToggle();
-  setupLogin();
 
   try {
     await initializeData();
   } catch (err) {
     console.error('initializeData failed:', err);
   }
+
+  setupLogin();
 
   try {
     startRealtimeSync();
