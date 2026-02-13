@@ -470,8 +470,8 @@ function normalizeInspectionFormValue(value) {
   if (['boroscopy', 'borescopy'].includes(normalized)) return 'BOROSCOPY';
   if (normalized === 'internal') return 'INTERNAL';
   if (normalized === 'external') return 'EXTERNAL';
-  if (normalized === 'hot') return 'HOT';
-  if (normalized === 'cold') return 'COLD';
+  if (normalized === 'hot job') return 'HOT JOB';
+  if (normalized === 'cold') return 'COLD JOB';
   return String(value || '').trim();
 }
 
