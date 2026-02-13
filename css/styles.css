@@ -91,6 +91,14 @@ body.sidebar-open .sidebar { transform: translateX(0); }
 .nav-link { display: block; padding: 0.7rem 0.8rem; border-radius: 8px; color: var(--muted); margin-bottom: 0.5rem; }
 .nav-link.active, .nav-link:hover { background: #1d4ed8; color: #fff; }
 
+
+.sidebar-menu-extras { margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px solid var(--border); }
+.sidebar-signin { margin: 0 0 0.7rem; color: var(--text); font-size: 0.95rem; }
+.sidebar-signin span { font-weight: 700; display: block; margin-top: 0.2rem; word-break: break-all; }
+.sidebar-theme-btn, .sidebar-profile-wrap .user-menu { width: 100%; min-width: 100%; }
+.sidebar-profile-wrap { width: 100%; }
+.top-controls-moved .header-right { display: none; }
+
 .content { padding: 1.2rem 1.5rem; }
 .header {
   display: flex;

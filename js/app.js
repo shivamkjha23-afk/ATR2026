@@ -72,8 +72,41 @@ function setupThemeToggle() {
 }
 
 function setHeaderUser() {
-  const el = document.getElementById('loggedInUser');
-  if (el) el.textContent = getLoggedInUser();
+  document.querySelectorAll('#loggedInUser').forEach((el) => {
+    el.textContent = getLoggedInUser();
+  });
+}
+
+function moveTopControlsToSidebar() {
+  if (document.body.dataset.page === 'login') return;
+  const sidebarNav = document.querySelector('.sidebar nav');
+  const headerRight = document.querySelector('.header-right');
+  if (!sidebarNav || !headerRight) return;
+
+  let extras = document.getElementById('sidebarMenuExtras');
+  if (!extras) {
+    extras = document.createElement('div');
+    extras.id = 'sidebarMenuExtras';
+    extras.className = 'sidebar-menu-extras';
+    sidebarNav.appendChild(extras);
+  }
+
+  const loggedInWrap = headerRight.querySelector('p');
+  const themeBtn = headerRight.querySelector('#themeToggleBtn');
+
+  if (loggedInWrap && !extras.contains(loggedInWrap)) {
+    loggedInWrap.classList.add('sidebar-signin');
+    const label = loggedInWrap.firstChild;
+    if (label && label.nodeType === Node.TEXT_NODE) label.textContent = 'Signed in as: ';
+    extras.appendChild(loggedInWrap);
+  }
+
+  if (themeBtn && !extras.contains(themeBtn)) {
+    themeBtn.classList.add('sidebar-theme-btn');
+    extras.appendChild(themeBtn);
+  }
+
+  document.body.classList.add('top-controls-moved');
 }
 
 function logoutCurrentUser() {
@@ -84,22 +117,22 @@ function logoutCurrentUser() {
 
 function setupUserMenu() {
   if (document.body.dataset.page === 'login') return;
-  const headerRight = document.querySelector('.header-right');
-  if (!headerRight || headerRight.querySelector('.user-menu')) return;
+  const extras = document.getElementById('sidebarMenuExtras') || document.querySelector('.sidebar nav');
+  if (!extras || extras.querySelector('.user-menu-wrap')) return;
 
   const userBtn = document.createElement('button');
   userBtn.type = 'button';
   userBtn.className = 'btn user-menu';
-  userBtn.textContent = `Profile: ${getLoggedInUser()} ⌄`;
+  userBtn.textContent = 'Profile ⌄';
 
   const menu = document.createElement('div');
   menu.className = 'user-menu-pop hidden';
   menu.innerHTML = `<button type="button" class="btn logout-btn">Logout</button>`;
 
   const wrap = document.createElement('div');
-  wrap.className = 'user-menu-wrap';
+  wrap.className = 'user-menu-wrap sidebar-profile-wrap';
   wrap.append(userBtn, menu);
-  headerRight.appendChild(wrap);
+  extras.appendChild(wrap);
 
   userBtn.addEventListener('click', () => menu.classList.toggle('hidden'));
   menu.querySelector('.logout-btn').addEventListener('click', logoutCurrentUser);
@@ -994,6 +1027,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   if (!requireAuth()) return;
   setHeaderUser();
   applyRoleVisibility();
+  moveTopControlsToSidebar();
   setupSidebarDrawer();
   setupUserMenu();
   injectCommonFooter();
