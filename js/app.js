@@ -84,28 +84,24 @@ function logoutCurrentUser() {
 
 function setupUserMenu() {
   if (document.body.dataset.page === 'login') return;
-  const sidebarNav = document.querySelector('.sidebar nav');
-  if (!sidebarNav || document.querySelector('.sidebar .user-menu-wrap')) return;
+  const headerRight = document.querySelector('.header-right');
+  if (!headerRight || headerRight.querySelector('.user-menu')) return;
 
-  const wrap = document.createElement('div');
-  wrap.className = 'user-menu-wrap';
-
-  const profile = document.createElement('button');
-  profile.type = 'button';
-  profile.className = 'nav-link user-menu';
-  profile.textContent = `Profile: ${getLoggedInUser()} ⌄`;
+  const userBtn = document.createElement('button');
+  userBtn.type = 'button';
+  userBtn.className = 'btn user-menu';
+  userBtn.textContent = `Profile: ${getLoggedInUser()} ⌄`;
 
   const menu = document.createElement('div');
   menu.className = 'user-menu-pop hidden';
-  menu.innerHTML = `
-    <p class="hint profile-line">User: ${getLoggedInUser()}</p>
-    <button type="button" class="btn logout-btn">Logout</button>
-  `;
+  menu.innerHTML = `<button type="button" class="btn logout-btn">Logout</button>`;
 
-  wrap.append(profile, menu);
-  sidebarNav.appendChild(wrap);
+  const wrap = document.createElement('div');
+  wrap.className = 'user-menu-wrap';
+  wrap.append(userBtn, menu);
+  headerRight.appendChild(wrap);
 
-  profile.addEventListener('click', () => menu.classList.toggle('hidden'));
+  userBtn.addEventListener('click', () => menu.classList.toggle('hidden'));
   menu.querySelector('.logout-btn').addEventListener('click', logoutCurrentUser);
   document.addEventListener('click', (evt) => {
     if (!wrap.contains(evt.target)) menu.classList.add('hidden');
@@ -537,7 +533,6 @@ function setupObservationPage() {
   const imageInput = document.getElementById('obsImage');
   const preview = document.getElementById('imagePreviewList');
   const tbody = document.getElementById('observationsTableBody');
-  const pageMain = document.getElementById('observationMain');
   const completedTagSelect = document.getElementById('obsInspectionTag');
   const obsUnit = document.getElementById('obsUnit');
 
@@ -617,11 +612,9 @@ ${(row.images || []).join('\n')}
   document.getElementById('openObservationFormBtn').onclick = () => {
     refreshCompletedInspectionTags();
     panel.classList.remove('hidden');
-    pageMain?.classList.add('split-view');
-    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
     document.getElementById('obsTag').focus();
   };
-  document.getElementById('closeObservationFormBtn').onclick = () => { panel.classList.add('hidden'); pageMain?.classList.remove('split-view'); };
+  document.getElementById('closeObservationFormBtn').onclick = () => panel.classList.add('hidden');
 
   imageInput.onchange = () => {
     preview.innerHTML = '';
