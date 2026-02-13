@@ -1,5 +1,5 @@
 const DASHBOARD_CHARTS = {};
-const DASHBOARD_STATE = { vesselTypeFilter: 'All' };
+const DASHBOARD_STATE = { vesselInspectionScopeFilter: 'All' };
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -101,6 +101,110 @@ function normalizeInspectionType(value) {
   return String(value || '').trim().toLowerCase();
 }
 
+function isCompletedInspection(row) {
+  return row.status === 'Completed' || row.final_status === 'Completed';
+}
+
+function isInProgressInspection(row) {
+  return row.status === 'In Progress' || row.final_status === 'In Progress';
+}
+
+function normalizeInspectionScope(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function renderVesselProgressTable(rows = []) {
+  const today = todayISO();
+  const grouped = groupByUnit(rows);
+  const units = Object.keys(grouped).sort((a, b) => a.localeCompare(b));
+
+  const metricsByUnit = units.map((unit) => {
+    const unitRows = grouped[unit];
+    const plannedRows = unitRows.filter((r) => r.inspection_type === 'Planned');
+    const opportunityRows = unitRows.filter((r) => ['Opportunity', 'Opportunity Based'].includes(r.inspection_type));
+
+    return {
+      unit,
+      planned: plannedRows.length,
+      opportunity: opportunityRows.length,
+      dayPlannedCompleted: plannedRows.filter((r) => r.inspection_date === today && isCompletedInspection(r)).length,
+      dayOpportunityCompleted: opportunityRows.filter((r) => r.inspection_date === today && isCompletedInspection(r)).length,
+      cumulativePlannedCompleted: plannedRows.filter(isCompletedInspection).length,
+      cumulativeOpportunityCompleted: opportunityRows.filter(isCompletedInspection).length,
+      inProgress: unitRows.filter(isInProgressInspection).length
+    };
+  });
+
+  const totals = metricsByUnit.reduce((acc, row) => {
+    acc.planned += row.planned;
+    acc.opportunity += row.opportunity;
+    acc.dayPlannedCompleted += row.dayPlannedCompleted;
+    acc.dayOpportunityCompleted += row.dayOpportunityCompleted;
+    acc.cumulativePlannedCompleted += row.cumulativePlannedCompleted;
+    acc.cumulativeOpportunityCompleted += row.cumulativeOpportunityCompleted;
+    acc.inProgress += row.inProgress;
+    return acc;
+  }, {
+    planned: 0,
+    opportunity: 0,
+    dayPlannedCompleted: 0,
+    dayOpportunityCompleted: 0,
+    cumulativePlannedCompleted: 0,
+    cumulativeOpportunityCompleted: 0,
+    inProgress: 0
+  });
+
+  return `
+    <div class="table-wrap vessel-progress-wrap">
+      <table class="vessel-progress-table">
+        <thead>
+          <tr>
+            <th colspan="3">Planned</th>
+            <th colspan="2">Day's Progress</th>
+            <th colspan="3">Cumulative Progress</th>
+          </tr>
+          <tr>
+            <th>Plant</th>
+            <th>Planned</th>
+            <th>Opportunity</th>
+            <th>Planned Completed</th>
+            <th>Opportunity Completed</th>
+            <th>Planned Completed</th>
+            <th>Opportunity Completed</th>
+            <th>In Progress</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${metricsByUnit.map((row) => `
+            <tr>
+              <td>${row.unit}</td>
+              <td>${row.planned || ''}</td>
+              <td>${row.opportunity || ''}</td>
+              <td>${row.dayPlannedCompleted || ''}</td>
+              <td>${row.dayOpportunityCompleted || ''}</td>
+              <td>${row.cumulativePlannedCompleted || ''}</td>
+              <td>${row.cumulativeOpportunityCompleted || ''}</td>
+              <td>${row.inProgress || ''}</td>
+            </tr>
+          `).join('') || '<tr><td colspan="8">No records</td></tr>'}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td>Total</td>
+            <td>${totals.planned}</td>
+            <td>${totals.opportunity}</td>
+            <td>${totals.dayPlannedCompleted || ''}</td>
+            <td>${totals.dayOpportunityCompleted || ''}</td>
+            <td>${totals.cumulativePlannedCompleted || ''}</td>
+            <td>${totals.cumulativeOpportunityCompleted || ''}</td>
+            <td>${totals.inProgress || ''}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  `;
+}
+
 function renderInspectionChartWithOpportunity(canvasId, labels, plannedData, opportunityData, completedData) {
   const baseData = plannedData.map((v, idx) => v + (opportunityData[idx] || 0));
   const percentData = labels.map((_, idx) => {
@@ -161,20 +265,20 @@ function renderUnitTable(headers, rows) {
 
 function sectionInspection(title, type, chartId, options = {}) {
   const includeOpportunity = options.includeOpportunity === true;
-  const enableTypeFilter = options.enableTypeFilter === true;
-  const selectedTypeFilter = options.typeFilter || 'All';
-  const normalizedSelectedType = normalizeInspectionType(selectedTypeFilter);
+  const enableInspectionScopeFilter = options.enableInspectionScopeFilter === true;
+  const selectedInspectionScopeFilter = options.inspectionScopeFilter || 'All';
+  const normalizedSelectedScope = normalizeInspectionScope(selectedInspectionScopeFilter);
 
   const baseRows = getCollection('inspections').filter((r) => r.equipment_type === type);
-  const inspectionTypeOptions = ['All', ...Array.from(new Set(baseRows
-    .map((r) => String(r.inspection_type || '').trim())
+  const inspectionScopeOptions = ['All', ...Array.from(new Set(baseRows
+    .map((r) => String(r.inspection_possible || '').trim())
     .filter(Boolean)))
     .sort((a, b) => a.localeCompare(b))
   ];
 
-  const source = normalizedSelectedType === 'all'
+  const source = normalizedSelectedScope === 'all'
     ? baseRows
-    : baseRows.filter((r) => normalizeInspectionType(r.inspection_type) === normalizedSelectedType);
+    : baseRows.filter((r) => normalizeInspectionScope(r.inspection_possible) === normalizedSelectedScope);
 
   const summary = computeSummary(source, { mode: 'inspection' });
   const grouped = groupByUnit(source);
@@ -195,10 +299,10 @@ function sectionInspection(title, type, chartId, options = {}) {
     { label: 'Completed', value: summary.completed }
   ].filter(Boolean);
 
-  const filterHtml = enableTypeFilter
-    ? `<div class="filter-tabs dashboard-filter-tabs">${inspectionTypeOptions.map((inspectionType) => {
-      const active = normalizeInspectionType(inspectionType) === normalizedSelectedType;
-      return `<button type="button" class="btn tab-btn vessel-type-filter-btn ${active ? 'active' : ''}" data-inspection-type="${inspectionType}">${inspectionType}</button>`;
+  const filterHtml = enableInspectionScopeFilter
+    ? `<div class="filter-tabs dashboard-filter-tabs">${inspectionScopeOptions.map((inspectionScope) => {
+      const active = normalizeInspectionScope(inspectionScope) === normalizedSelectedScope;
+      return `<button type="button" class="btn tab-btn vessel-scope-filter-btn ${active ? 'active' : ''}" data-inspection-scope="${inspectionScope}">${inspectionScope}</button>`;
     }).join('')}</div>`
     : '';
 
@@ -211,7 +315,7 @@ function sectionInspection(title, type, chartId, options = {}) {
       <h2>${title}</h2>
       ${filterHtml}
       ${renderSummaryCards(cards)}
-      ${renderUnitTable(tableHeaders, tableRows)}
+      ${type === 'Vessel' && includeOpportunity ? renderVesselProgressTable(source) : renderUnitTable(tableHeaders, tableRows)}
       <article class="chart-card"><canvas id="${chartId}"></canvas></article>
     </section>
   `;
@@ -291,8 +395,8 @@ function renderDashboard() {
 
   const vessel = sectionInspection('Vessel Dashboard', 'Vessel', 'vesselAnalyticsChart', {
     includeOpportunity: true,
-    enableTypeFilter: true,
-    typeFilter: DASHBOARD_STATE.vesselTypeFilter
+    enableInspectionScopeFilter: true,
+    inspectionScopeFilter: DASHBOARD_STATE.vesselInspectionScopeFilter
   });
   const pipeline = sectionInspection('Pipeline Dashboard', 'Pipeline', 'pipelineAnalyticsChart');
   const steamTrap = sectionInspection('Steam Trap Dashboard', 'Steam Trap', 'steamTrapAnalyticsChart');
@@ -311,10 +415,10 @@ function renderDashboard() {
   steamTrap.chart();
   requisition.chart();
 
-  const vesselFilterButtons = root.querySelectorAll('.vessel-type-filter-btn');
+  const vesselFilterButtons = root.querySelectorAll('.vessel-scope-filter-btn');
   vesselFilterButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
-      DASHBOARD_STATE.vesselTypeFilter = btn.dataset.inspectionType || 'All';
+      DASHBOARD_STATE.vesselInspectionScopeFilter = btn.dataset.inspectionScope || 'All';
       renderDashboard();
     });
   });
