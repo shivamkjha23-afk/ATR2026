@@ -25,6 +25,9 @@ const DB_TEMPLATE = {
 };
 
 const RUNTIME_DOC_PATH = { collection: 'atr2026', id: 'runtime' };
+const RUNTIME_CHUNKS_COLLECTION = 'runtime_chunks';
+const RUNTIME_COLLECTION_KEYS = ['inspections', 'observations', 'requisitions', 'users', 'images'];
+const MAX_CHUNK_CHARS = 350000;
 
 let firebaseReady = false;
 let firebaseApp = null;
@@ -66,6 +69,153 @@ function bootFirebase() {
 function runtimeDocRef() {
   bootFirebase();
   return firebaseDb.collection(RUNTIME_DOC_PATH.collection).doc(RUNTIME_DOC_PATH.id);
+}
+
+function runtimeChunksRef() {
+  return runtimeDocRef().collection(RUNTIME_CHUNKS_COLLECTION);
+}
+
+function chunkRowsBySize(rows = []) {
+  const chunks = [];
+  let current = [];
+  let currentSize = 2;
+
+  rows.forEach((row) => {
+    const serialized = JSON.stringify(row);
+    const rowSize = serialized.length + 1;
+    if (current.length && (currentSize + rowSize > MAX_CHUNK_CHARS)) {
+      chunks.push(current);
+      current = [];
+      currentSize = 2;
+    }
+    current.push(row);
+    currentSize += rowSize;
+  });
+
+  if (current.length) chunks.push(current);
+  return chunks;
+}
+
+function createChunkDocsForCollection(key, value) {
+  if (Array.isArray(value)) {
+    return chunkRowsBySize(value).map((rows, index) => ({
+      id: `${key}_${index}`,
+      payload: { kind: 'array', key, order: index, rows }
+    }));
+  }
+
+  const entries = Object.entries(value || {});
+  return chunkRowsBySize(entries).map((chunkEntries, index) => ({
+    id: `${key}_${index}`,
+    payload: { kind: 'object_entries', key, order: index, entries: chunkEntries }
+  }));
+}
+
+function buildCloudMetaPayload(db) {
+  const counts = {
+    inspections: (db.inspections || []).length,
+    observations: (db.observations || []).length,
+    requisitions: (db.requisitions || []).length,
+    users: (db.users || []).length,
+    images: Object.keys(db.images || {}).length
+  };
+
+  return {
+    _meta: db._meta || { last_updated: nowStamp() },
+    storage_format: 'chunked-v2',
+    counts,
+    updated_at: nowStamp()
+  };
+}
+
+async function replaceCloudChunks(db) {
+  const chunks = runtimeChunksRef();
+  const existing = await chunks.get();
+
+  if (!existing.empty) {
+    let batch = firebaseDb.batch();
+    let ops = 0;
+    for (const docSnap of existing.docs) {
+      batch.delete(docSnap.ref);
+      ops += 1;
+      if (ops >= 400) {
+        await batch.commit();
+        batch = firebaseDb.batch();
+        ops = 0;
+      }
+    }
+    if (ops) await batch.commit();
+  }
+
+  let batch = firebaseDb.batch();
+  let ops = 0;
+
+  for (const key of RUNTIME_COLLECTION_KEYS) {
+    const docs = createChunkDocsForCollection(key, db[key]);
+    if (!docs.length) {
+      const emptyPayload = key === 'images'
+        ? { kind: 'object_entries', key, order: 0, entries: [] }
+        : { kind: 'array', key, order: 0, rows: [] };
+      docs.push({ id: `${key}_0`, payload: emptyPayload });
+    }
+
+    for (const doc of docs) {
+      batch.set(chunks.doc(doc.id), doc.payload, { merge: false });
+      ops += 1;
+      if (ops >= 400) {
+        await batch.commit();
+        batch = firebaseDb.batch();
+        ops = 0;
+      }
+    }
+  }
+
+  if (ops) await batch.commit();
+}
+
+
+function restoreRuntimeFromChunkDocs(chunkDocs = []) {
+  const next = clone(DB_TEMPLATE);
+  const byKey = new Map(RUNTIME_COLLECTION_KEYS.map((key) => [key, []]));
+
+  chunkDocs.forEach((doc) => {
+    const data = doc.data();
+    if (!data || !byKey.has(data.key)) return;
+    byKey.get(data.key).push(data);
+  });
+
+  RUNTIME_COLLECTION_KEYS.forEach((key) => {
+    const parts = byKey.get(key).sort((a, b) => (a.order || 0) - (b.order || 0));
+    if (key === 'images') {
+      const entries = parts.flatMap((p) => p.entries || []);
+      next.images = Object.fromEntries(entries);
+      return;
+    }
+    next[key] = parts.flatMap((p) => p.rows || []);
+  });
+
+  return next;
+}
+
+async function readCloudRuntimeData() {
+  const metaSnap = await runtimeDocRef().get();
+  if (!metaSnap.exists || !metaSnap.data()) return null;
+
+  const meta = metaSnap.data();
+  if (meta.storage_format === 'chunked-v2') {
+    const chunksSnap = await runtimeChunksRef().get();
+    const restored = restoreRuntimeFromChunkDocs(chunksSnap.docs || []);
+    restored._meta = meta._meta || { last_updated: nowStamp() };
+    return restored;
+  }
+
+  return clone({ ...DB_TEMPLATE, ...meta });
+}
+
+async function writeCloudRuntimeData(db) {
+  const normalizedDb = clone({ ...DB_TEMPLATE, ...db });
+  await replaceCloudChunks(normalizedDb);
+  await runtimeDocRef().set(buildCloudMetaPayload(normalizedDb), { merge: false });
 }
 
 async function ensureFirebaseSession() {
@@ -334,17 +484,16 @@ async function initializeData() {
 
   try {
     await ensureFirebaseSession();
-    const ref = runtimeDocRef();
-    const snap = await ref.get();
+    const cloudData = await readCloudRuntimeData();
 
-    if (snap.exists && snap.data()) {
-      runtimeDB = clone({ ...DB_TEMPLATE, ...snap.data() });
+    if (cloudData) {
+      runtimeDB = clone({ ...DB_TEMPLATE, ...cloudData });
       ensureRuntimeDefaults();
       setSyncStatus({ ok: true, message: 'Loaded data from Firebase cloud.' });
       return;
     }
 
-    await ref.set(buildDatabaseFilesPayload(), { merge: false });
+    await writeCloudRuntimeData(buildDatabaseFilesPayload());
     setSyncStatus({ ok: true, message: 'Initialized Firebase cloud document.' });
   } catch (err) {
     setSyncStatus({ ok: false, message: `Firebase init fallback (local cache in use): ${err.message}` });
@@ -355,17 +504,15 @@ async function initializeData() {
 async function syncAllToCloud(config = getCloudConfig()) {
   if (!config.enabled) return;
   await ensureFirebaseSession();
-  await runtimeDocRef().set(buildDatabaseFilesPayload(), { merge: false });
+  await writeCloudRuntimeData(buildDatabaseFilesPayload());
   setSyncStatus({ ok: true, message: 'Saved to Firebase cloud successfully.' });
 }
 
 async function pullCloudToLocalIfNewer(config = getCloudConfig()) {
   if (!config.enabled) return;
   await ensureFirebaseSession();
-  const snap = await runtimeDocRef().get();
-  if (!snap.exists || !snap.data()) return;
-
-  const remote = snap.data();
+  const remote = await readCloudRuntimeData();
+  if (!remote) return;
   const local = readDB();
   const remoteTime = new Date(remote._meta?.last_updated || 0).getTime();
   const localTime = new Date(local._meta?.last_updated || 0).getTime();
@@ -407,9 +554,10 @@ function startRealtimeSync() {
   if (!config.enabled) return;
 
   ensureFirebaseSession()
-    .then(() => runtimeDocRef().onSnapshot((snap) => {
+    .then(() => runtimeDocRef().onSnapshot(async (snap) => {
     if (!snap.exists || !snap.data()) return;
-    const remote = snap.data();
+    const remote = await readCloudRuntimeData();
+    if (!remote) return;
     const local = readDB();
     const remoteTime = new Date(remote._meta?.last_updated || 0).getTime();
     const localTime = new Date(local._meta?.last_updated || 0).getTime();

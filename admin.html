@@ -59,7 +59,7 @@
 
         <section class="form-card">
           <h3>Bulk Upload Data (Excel)</h3>
-          <p class="hint">For inspections: existing `id` updates record, blank `id` creates a new record.</p>
+          <p class="hint">For inspections: existing `id` updates record, blank `id` creates a new record. Use `inspection_type` = Planned/Opportunity Based and `inspection_form` = BOROSCOPY/INTERNAL/EXTERNAL.</p>
 
           <label>Upload Type (Dropdown)
             <select id="uploadTypeSelect">
@@ -79,8 +79,7 @@
           </label>
 
           <div class="actions">
-            <button class="btn" id="downloadTemplateBtn" type="button">Download Excel Template</button>
-            <button class="btn" id="exportInspectionsBtn" type="button">Export Excel Template (All Form Fields)</button>
+            <button class="btn" id="exportInspectionsBtn" type="button">Export Inspection Upload Format + Current Data</button>
           </div>
           <input type="file" id="bulkUploadFile" accept=".xlsx,.xls" />
           <button class="btn btn-primary" id="bulkUploadBtn" type="button">Upload Excel Data</button>
