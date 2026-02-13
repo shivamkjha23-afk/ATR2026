@@ -76,6 +76,74 @@ function setHeaderUser() {
   if (el) el.textContent = getLoggedInUser();
 }
 
+function logoutCurrentUser() {
+  localStorage.removeItem(STORAGE_KEYS.sessionUser);
+  localStorage.removeItem('username');
+  window.location.assign('index.html');
+}
+
+function setupUserMenu() {
+  if (document.body.dataset.page === 'login') return;
+  const sidebarNav = document.querySelector('.sidebar nav');
+  if (!sidebarNav || document.querySelector('.sidebar .user-menu-wrap')) return;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'user-menu-wrap';
+
+  const profile = document.createElement('button');
+  profile.type = 'button';
+  profile.className = 'nav-link user-menu';
+  profile.textContent = `Profile: ${getLoggedInUser()} ⌄`;
+
+  const menu = document.createElement('div');
+  menu.className = 'user-menu-pop hidden';
+  menu.innerHTML = `
+    <p class="hint profile-line">User: ${getLoggedInUser()}</p>
+    <button type="button" class="btn logout-btn">Logout</button>
+  `;
+
+  wrap.append(profile, menu);
+  sidebarNav.appendChild(wrap);
+
+  profile.addEventListener('click', () => menu.classList.toggle('hidden'));
+  menu.querySelector('.logout-btn').addEventListener('click', logoutCurrentUser);
+  document.addEventListener('click', (evt) => {
+    if (!wrap.contains(evt.target)) menu.classList.add('hidden');
+  });
+}
+
+function setupSidebarDrawer() {
+  if (document.body.dataset.page === 'login') return;
+  const sidebar = document.querySelector('.sidebar');
+  const header = document.querySelector('.header');
+  if (!sidebar || !header) return;
+
+  document.body.classList.add('sidebar-collapsed');
+
+  let menuBtn = document.getElementById('sidebarToggleBtn');
+  if (!menuBtn) {
+    menuBtn = document.createElement('button');
+    menuBtn.id = 'sidebarToggleBtn';
+    menuBtn.type = 'button';
+    menuBtn.className = 'btn menu-btn';
+    menuBtn.textContent = '☰ Menu';
+    header.insertBefore(menuBtn, header.firstChild);
+  }
+
+  menuBtn.addEventListener('click', () => {
+    document.body.classList.toggle('sidebar-open');
+    document.body.classList.toggle('sidebar-collapsed');
+  });
+
+  document.addEventListener('click', (evt) => {
+    const clickedInside = sidebar.contains(evt.target) || menuBtn.contains(evt.target);
+    if (!clickedInside) {
+      document.body.classList.remove('sidebar-open');
+      document.body.classList.add('sidebar-collapsed');
+    }
+  });
+}
+
 function requireAuth() {
   if (document.body.dataset.page === 'login') return true;
   const user = getCurrentUserObj();
@@ -259,10 +327,10 @@ function normalizeInspectionPayload(payload) {
     inspection_type: payload.inspection_type || '',
     equipment_name: payload.equipment_name || '',
     last_inspection_year: payload.last_inspection_year || '',
-    inspection_possible: payload.inspection_possible || 'Yes',
+    inspection_possible: payload.inspection_possible || '',
     inspection_date: payload.inspection_date || '',
     status: payload.status || '',
-    final_status: payload.final_status || 'Not Started',
+    final_status: payload.final_status || '',
     remarks: payload.remarks || '',
     observation: payload.observation || '',
     recommendation: payload.recommendation || ''
@@ -280,12 +348,15 @@ function setupInspectionPage() {
   const form = document.getElementById('inspectionForm');
   const statusSelect = document.getElementById('status');
 
+  unitFilter.insertAdjacentHTML('beforeend', '<option value="All">All Units</option>');
+  unitFilter.insertAdjacentHTML('beforeend', '<option value="">(Blank Unit)</option>');
   UNIT_OPTIONS.forEach((u) => {
     unitFilter.insertAdjacentHTML('beforeend', `<option value="${u}">${u}</option>`);
     document.getElementById('unit_name').insertAdjacentHTML('beforeend', `<option>${u}</option>`);
   });
-  unitFilter.insertAdjacentHTML('afterbegin', '<option value="All">All Units</option>');
+  document.getElementById('equipment_type').insertAdjacentHTML('beforeend', '<option value="">-- Keep Blank --</option>');
   EQUIPMENT_TYPES.forEach((t) => document.getElementById('equipment_type').insertAdjacentHTML('beforeend', `<option>${t}</option>`));
+  statusSelect.insertAdjacentHTML('beforeend', '<option value="">-- Keep Blank --</option>');
   INSPECTION_STATUS_OPTIONS.forEach((s) => statusSelect.insertAdjacentHTML('beforeend', `<option>${s}</option>`));
 
   const typeFilters = ['All', ...EQUIPMENT_TYPES];
@@ -305,17 +376,21 @@ function setupInspectionPage() {
   function openForm(title) {
     document.getElementById('inspectionFormTitle').textContent = title;
     formPanel.classList.remove('hidden');
+    document.getElementById('inspectionMain')?.classList.add('split-view');
+    formPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTimeout(() => document.getElementById('equipment_tag_number')?.focus(), 100);
   }
 
   function closeForm() {
     formPanel.classList.add('hidden');
+    document.getElementById('inspectionMain')?.classList.remove('split-view');
     form.reset();
     editId = '';
   }
 
   function filteredRows() {
     return getCollection('inspections').filter((r) => {
-      const okUnit = unitFilter.value === 'All' || r.unit_name === unitFilter.value;
+      const okUnit = unitFilter.value === 'All' || (unitFilter.value === '' ? !r.unit_name : r.unit_name === unitFilter.value);
       const okType = activeType === 'All' || r.equipment_type === activeType;
       const okTag = (r.equipment_tag_number || '').toLowerCase().includes(tagSearch.value.trim().toLowerCase());
       return okUnit && okType && okTag;
@@ -462,6 +537,25 @@ function setupObservationPage() {
   const imageInput = document.getElementById('obsImage');
   const preview = document.getElementById('imagePreviewList');
   const tbody = document.getElementById('observationsTableBody');
+  const pageMain = document.getElementById('observationMain');
+  const completedTagSelect = document.getElementById('obsInspectionTag');
+  const obsUnit = document.getElementById('obsUnit');
+
+  UNIT_OPTIONS.forEach((u) => obsUnit.insertAdjacentHTML('beforeend', `<option>${u}</option>`));
+
+  function refreshCompletedInspectionTags() {
+    const completed = getCollection('inspections').filter((r) => r.final_status === 'Completed');
+    completedTagSelect.innerHTML = '<option value="">Select from completed inspections (optional)</option>'
+      + completed.map((r) => `<option value="${r.id}">${r.equipment_tag_number || r.id} (${r.unit_name || 'No Unit'})</option>`).join('');
+  }
+
+  completedTagSelect.onchange = () => {
+    const row = getCollection('inspections').find((r) => r.id === completedTagSelect.value);
+    if (!row) return;
+    document.getElementById('obsTag').value = row.equipment_tag_number || '';
+    document.getElementById('obsUnit').value = row.unit_name || '';
+    if (!document.getElementById('obsLocation').value) document.getElementById('obsLocation').value = row.equipment_name || '';
+  };
 
   function render() {
     const rows = getCollection('observations');
@@ -470,7 +564,7 @@ function setupObservationPage() {
         <td>${r.tag_number}</td><td>${r.unit}</td><td>${r.location}</td>
         <td>${r.observation}</td><td>${r.recommendation}</td>
         <td><select class="obs-status ${statusClass(r.status)}" data-id="${r.id}">
-          ${['Not Started','In Progress','Completed'].map((s) => `<option ${r.status===s?'selected':''}>${s}</option>`).join('')}
+          ${['Not Started', 'In Progress', 'Completed'].map((s) => `<option ${r.status === s ? 'selected' : ''}>${s}</option>`).join('')}
         </select></td>
         <td>${(r.images || []).map((p) => `<img class="mini-preview clickable-img" data-src="${getImageData(p)}" src="${getImageData(p)}" alt="img"/>`).join('')}</td>
         <td>
@@ -480,10 +574,10 @@ function setupObservationPage() {
       </tr>
     `).join('');
 
-    tbody.querySelectorAll('.obs-status').forEach((s) => {
-      s.onchange = () => {
-        const row = getCollection('observations').find((x) => x.id === s.dataset.id);
-        if (row) upsertById('observations', { ...row, status: s.value }, 'OBS');
+    tbody.querySelectorAll('.obs-status').forEach((statusDropdown) => {
+      statusDropdown.onchange = () => {
+        const row = getCollection('observations').find((x) => x.id === statusDropdown.dataset.id);
+        if (row) upsertById('observations', { ...row, status: statusDropdown.value }, 'OBS');
         render();
       };
     });
@@ -497,8 +591,21 @@ function setupObservationPage() {
         const row = getCollection('observations').find((x) => x.id === btn.dataset.id);
         if (!row) return;
         const subject = encodeURIComponent(`ATR Observation - ${row.tag_number}`);
-        const body = encodeURIComponent(`Tag: ${row.tag_number}\nUnit: ${row.unit}\nLocation: ${row.location}\n\nDescription:\n${row.observation}\n\nRecommendation:\n${row.recommendation}\n\nImage paths:\n${(row.images || []).join('\n')}\n\n(Outlook note: attach images from saved paths.)`);
-        window.location.href = `mailto:?subject=${subject}&body=${body}&attachment=${encodeURIComponent((row.images||[]).join(';'))}`;
+        const body = encodeURIComponent(`Tag: ${row.tag_number}
+Unit: ${row.unit}
+Location: ${row.location}
+
+Description:
+${row.observation}
+
+Recommendation:
+${row.recommendation}
+
+Image paths:
+${(row.images || []).join('\n')}
+
+(Outlook note: attach images from saved paths.)`);
+        window.location.href = `mailto:?subject=${subject}&body=${body}&attachment=${encodeURIComponent((row.images || []).join(';'))}`;
       };
     });
 
@@ -507,8 +614,14 @@ function setupObservationPage() {
     });
   }
 
-  document.getElementById('openObservationFormBtn').onclick = () => panel.classList.remove('hidden');
-  document.getElementById('closeObservationFormBtn').onclick = () => panel.classList.add('hidden');
+  document.getElementById('openObservationFormBtn').onclick = () => {
+    refreshCompletedInspectionTags();
+    panel.classList.remove('hidden');
+    pageMain?.classList.add('split-view');
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById('obsTag').focus();
+  };
+  document.getElementById('closeObservationFormBtn').onclick = () => { panel.classList.add('hidden'); pageMain?.classList.remove('split-view'); };
 
   imageInput.onchange = () => {
     preview.innerHTML = '';
@@ -538,7 +651,9 @@ function setupObservationPage() {
       form.reset();
       preview.innerHTML = '';
       panel.classList.add('hidden');
+      pageMain?.classList.remove('split-view');
       if (typeof setSyncStatus === 'function') setSyncStatus({ ok: true, message: 'Observation and images saved to cloud.' });
+      refreshCompletedInspectionTags();
       render();
     } catch (err) {
       if (typeof setSyncStatus === 'function') setSyncStatus({ ok: false, message: err.message || 'Failed to save observation.' });
@@ -546,6 +661,7 @@ function setupObservationPage() {
     }
   });
 
+  refreshCompletedInspectionTags();
   render();
 }
 
@@ -554,6 +670,7 @@ function setupRequisitionPage() {
   const formPanel = document.getElementById('requisitionFormPanel');
   const form = document.getElementById('requisitionForm');
   const tbody = document.getElementById('requisitionTableBody');
+  const pageMain = document.getElementById('requisitionMain');
   const result = document.getElementById('reqResult');
   const status2Wrap = document.getElementById('status2Wrap');
   let editId = '';
@@ -595,6 +712,8 @@ function setupRequisitionPage() {
         });
         status2Wrap.classList.toggle('hidden', row.result !== 'Reshoot');
         formPanel.classList.remove('hidden');
+        pageMain?.classList.add('split-view');
+        formPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
       };
     });
 
@@ -608,9 +727,12 @@ function setupRequisitionPage() {
     form.reset();
     status2Wrap.classList.add('hidden');
     formPanel.classList.remove('hidden');
+    pageMain?.classList.add('split-view');
+    formPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById('reqTag')?.focus();
   };
 
-  document.getElementById('closeRequisitionFormBtn').onclick = () => formPanel.classList.add('hidden');
+  document.getElementById('closeRequisitionFormBtn').onclick = () => { formPanel.classList.add('hidden'); pageMain?.classList.remove('split-view'); };
 
   result.onchange = () => status2Wrap.classList.toggle('hidden', result.value !== 'Reshoot');
 
@@ -630,6 +752,7 @@ function setupRequisitionPage() {
       remarks: document.getElementById('reqRemarks').value
     }, 'REQ');
     formPanel.classList.add('hidden');
+    pageMain?.classList.remove('split-view');
     if (typeof setSyncStatus === 'function') setSyncStatus({ ok: true, message: 'Requisition saved successfully.' });
     render();
   });
@@ -746,30 +869,34 @@ function setupAdminPanel() {
 function setupSyncStatusUI() {
   const existing = document.getElementById('syncStatusBanner');
   if (existing) return;
-  const container = document.querySelector('.content') || document.querySelector('.landing-card') || document.body;
-  if (!container) return;
 
   const banner = document.createElement('div');
   banner.id = 'syncStatusBanner';
-  banner.className = 'sync-status-banner';
+  banner.className = 'sync-status-banner popup';
   banner.textContent = 'Cloud sync ready.';
-  container.insertBefore(banner, container.firstChild);
+  document.body.appendChild(banner);
+
+  let hideTimer;
+  function showStatus(message, ok = true) {
+    banner.textContent = message;
+    banner.classList.toggle('ok', ok);
+    banner.classList.toggle('error', !ok);
+    banner.classList.add('show');
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => banner.classList.remove('show'), 2400);
+  }
 
   const raw = localStorage.getItem(STORAGE_KEYS.syncStatus);
   if (raw) {
     try {
       const parsed = JSON.parse(raw);
-      banner.textContent = parsed.message || banner.textContent;
-      banner.classList.toggle('ok', parsed.ok !== false);
-      banner.classList.toggle('error', parsed.ok === false);
+      showStatus(parsed.message || 'Cloud sync ready.', parsed.ok !== false);
     } catch (_) {}
   }
 
   window.addEventListener('atr-sync-status', (evt) => {
     const ok = evt.detail?.ok !== false;
-    banner.textContent = evt.detail?.message || (ok ? 'Cloud sync success.' : 'Cloud sync failed.');
-    banner.classList.toggle('ok', ok);
-    banner.classList.toggle('error', !ok);
+    showStatus(evt.detail?.message || (ok ? 'Cloud sync success.' : 'Cloud sync failed.'), ok);
   });
 }
 
@@ -807,7 +934,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   if (!requireAuth()) return;
   setHeaderUser();
   applyRoleVisibility();
-  injectQuickActions();
+  setupSidebarDrawer();
+  setupUserMenu();
   injectCommonFooter();
   setupInspectionPage();
   setupObservationPage();
