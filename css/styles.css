@@ -218,9 +218,8 @@ th { color: var(--muted); }
 
 .inspection-main.split-view { display: grid; grid-template-columns: 1.4fr 1fr; gap: 0.9rem; align-items: start; }
 .inspection-main.split-view .form-card { position: sticky; top: 0.8rem; }
-.page-main.split-view { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(320px, 1fr); gap: 0.9rem; align-items: start; }
+.page-main.split-view { display: grid; grid-template-columns: 1.35fr 1fr; gap: 0.9rem; align-items: start; }
 .page-main.split-view .form-card { position: sticky; top: 0.8rem; }
-.page-main.split-view > .table-card { min-width: 0; }
 
 
 @media (max-width: 1180px) {
