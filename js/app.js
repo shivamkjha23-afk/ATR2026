@@ -726,6 +726,7 @@ function setupInspectionPage() {
 
   unitFilter.onchange = renderInspectionList;
   tagSearch.oninput = renderInspectionList;
+  window.addEventListener('atr-db-updated', renderInspectionList);
   renderInspectionList();
 }
 
@@ -943,6 +944,11 @@ ${getLoggedInUser()}`);
     }
   });
 
+  window.addEventListener('atr-db-updated', () => {
+    refreshCompletedInspectionTags();
+    render();
+  });
+
   refreshCompletedInspectionTags();
   render();
 }
@@ -1058,6 +1064,7 @@ function setupRequisitionPage() {
     render();
   });
 
+  window.addEventListener('atr-db-updated', render);
   render();
 }
 
@@ -1092,9 +1099,14 @@ function setupAdminPanel() {
       const mappedRow = remapInspectionExcelRow(row);
       const payload = normalizeInspectionPayload(mappedRow);
       if (!payload.unit_name && defaultUploadUnit.value) payload.unit_name = defaultUploadUnit.value;
-      if (mappedRow.id) payload.id = String(mappedRow.id);
+      if (mappedRow.id) payload.id = String(mappedRow.id).trim();
       return payload;
-    });
+    }).filter((payload) => Object.values(payload).some((value) => String(value || '').trim()));
+
+    if (!payloads.length) {
+      message.textContent = 'No valid inspection rows found in uploaded file.';
+      return;
+    }
     batchUpsertById('inspections', payloads, 'INSP');
   }
 
@@ -1102,7 +1114,7 @@ function setupAdminPanel() {
     const users = getCollection('users');
     const byUsername = new Map(users.map((u) => [u.username, u]));
     rows.forEach((row) => {
-      const username = String(row.username || '').trim();
+      const username = String(row.username || '').trim().toLowerCase();
       if (!username) return;
       const candidate = {
         username,
@@ -1201,6 +1213,7 @@ function setupAdminPanel() {
   const syncBtn = document.getElementById('syncGithubBtn');
   if (syncBtn) syncBtn.onclick = () => syncNow().catch((err) => { message.textContent = err.message; });
 
+  window.addEventListener('atr-db-updated', renderUsers);
   renderUsers();
 }
 
