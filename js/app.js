@@ -530,11 +530,17 @@ function setupObservationPage() {
 
   const form = document.getElementById('observationForm');
   const panel = document.getElementById('observationFormPanel');
+  const pageMain = document.getElementById('observationMain');
   const imageInput = document.getElementById('obsImage');
   const preview = document.getElementById('imagePreviewList');
   const tbody = document.getElementById('observationsTableBody');
   const completedTagSelect = document.getElementById('obsInspectionTag');
   const obsUnit = document.getElementById('obsUnit');
+  const formTitle = document.getElementById('observationFormTitle');
+  const submitBtn = document.getElementById('observationSubmitBtn');
+  const openBtn = document.getElementById('openObservationFormBtn');
+  let editId = '';
+  let editImagePaths = [];
 
   UNIT_OPTIONS.forEach((u) => obsUnit.insertAdjacentHTML('beforeend', `<option>${u}</option>`));
 
@@ -563,11 +569,35 @@ function setupObservationPage() {
         </select></td>
         <td>${(r.images || []).map((p) => `<img class="mini-preview clickable-img" data-src="${getImageData(p)}" src="${getImageData(p)}" alt="img"/>`).join('')}</td>
         <td>
+          <button class="btn edit-obs" data-id="${r.id}" type="button">Edit</button>
           <button class="btn email-obs" data-id="${r.id}" type="button">Draft Email</button>
           ${isAdmin() ? `<button class="btn delete-obs" data-id="${r.id}" type="button">Delete</button>` : ''}
         </td>
       </tr>
     `).join('');
+
+    tbody.querySelectorAll('.edit-obs').forEach((btn) => {
+      btn.onclick = () => {
+        const row = getCollection('observations').find((x) => x.id === btn.dataset.id);
+        if (!row) return;
+        editId = row.id;
+        editImagePaths = row.images || [];
+        document.getElementById('obsInspectionTag').value = '';
+        document.getElementById('obsTag').value = row.tag_number || '';
+        document.getElementById('obsUnit').value = row.unit || '';
+        document.getElementById('obsLocation').value = row.location || '';
+        document.getElementById('obsObservation').value = row.observation || '';
+        document.getElementById('obsRecommendation').value = row.recommendation || '';
+        document.getElementById('obsStatus').value = row.status || 'Not Started';
+        preview.innerHTML = editImagePaths.map((p) => `<img class="mini-preview" src="${getImageData(p)}" alt="saved preview"/>`).join('');
+        formTitle.textContent = 'Update Observation';
+        submitBtn.textContent = 'Update Observation';
+        panel.classList.remove('hidden');
+        pageMain?.classList.add('split-view');
+        openBtn.setAttribute('aria-expanded', 'true');
+        form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      };
+    });
 
     tbody.querySelectorAll('.obs-status').forEach((statusDropdown) => {
       statusDropdown.onchange = () => {
@@ -609,12 +639,24 @@ ${(row.images || []).join('\n')}
     });
   }
 
-  document.getElementById('openObservationFormBtn').onclick = () => {
+  openBtn.onclick = () => {
+    editId = '';
+    editImagePaths = [];
+    form.reset();
+    preview.innerHTML = '';
+    formTitle.textContent = 'Add Observation';
+    submitBtn.textContent = 'Save Observation';
     refreshCompletedInspectionTags();
     panel.classList.remove('hidden');
+    pageMain?.classList.add('split-view');
+    openBtn.setAttribute('aria-expanded', 'true');
     document.getElementById('obsTag').focus();
   };
-  document.getElementById('closeObservationFormBtn').onclick = () => panel.classList.add('hidden');
+  document.getElementById('closeObservationFormBtn').onclick = () => {
+    panel.classList.add('hidden');
+    pageMain?.classList.remove('split-view');
+    openBtn.setAttribute('aria-expanded', 'false');
+  };
 
   imageInput.onchange = () => {
     preview.innerHTML = '';
@@ -628,9 +670,10 @@ ${(row.images || []).join('\n')}
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
-      const observationId = generateId('OBS');
+      const observationId = editId || generateId('OBS');
       const tagNo = document.getElementById('obsTag').value;
-      const imagePaths = await filesToPaths(imageInput.files || [], observationId, tagNo);
+      const selectedFiles = imageInput.files || [];
+      const imagePaths = selectedFiles.length ? await filesToPaths(selectedFiles, observationId, tagNo) : editImagePaths;
       upsertById('observations', {
         id: observationId,
         tag_number: tagNo,
@@ -645,6 +688,11 @@ ${(row.images || []).join('\n')}
       preview.innerHTML = '';
       panel.classList.add('hidden');
       pageMain?.classList.remove('split-view');
+      openBtn.setAttribute('aria-expanded', 'false');
+      formTitle.textContent = 'Add Observation';
+      submitBtn.textContent = 'Save Observation';
+      editId = '';
+      editImagePaths = [];
       if (typeof setSyncStatus === 'function') setSyncStatus({ ok: true, message: 'Observation and images saved to cloud.' });
       refreshCompletedInspectionTags();
       render();
@@ -664,6 +712,9 @@ function setupRequisitionPage() {
   const form = document.getElementById('requisitionForm');
   const tbody = document.getElementById('requisitionTableBody');
   const pageMain = document.getElementById('requisitionMain');
+  const formTitle = document.getElementById('requisitionFormTitle');
+  const submitBtn = document.getElementById('requisitionSubmitBtn');
+  const openBtn = document.getElementById('openRequisitionFormBtn');
   const result = document.getElementById('reqResult');
   const status2Wrap = document.getElementById('status2Wrap');
   let editId = '';
@@ -704,8 +755,11 @@ function setupRequisitionPage() {
           if (el) el.value = row[k] || '';
         });
         status2Wrap.classList.toggle('hidden', row.result !== 'Reshoot');
+        formTitle.textContent = 'Update Requisition';
+        submitBtn.textContent = 'Update Requisition';
         formPanel.classList.remove('hidden');
         pageMain?.classList.add('split-view');
+        openBtn.setAttribute('aria-expanded', 'true');
         formPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
       };
     });
@@ -715,17 +769,26 @@ function setupRequisitionPage() {
     });
   }
 
-  document.getElementById('openRequisitionFormBtn').onclick = () => {
+  openBtn.onclick = () => {
     editId = '';
     form.reset();
+    formTitle.textContent = 'Requisition Form';
+    submitBtn.textContent = 'Save Requisition';
     status2Wrap.classList.add('hidden');
     formPanel.classList.remove('hidden');
     pageMain?.classList.add('split-view');
     formPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    openBtn.setAttribute('aria-expanded', 'true');
     document.getElementById('reqTag')?.focus();
   };
 
-  document.getElementById('closeRequisitionFormBtn').onclick = () => { formPanel.classList.add('hidden'); pageMain?.classList.remove('split-view'); };
+  document.getElementById('closeRequisitionFormBtn').onclick = () => {
+    formPanel.classList.add('hidden');
+    pageMain?.classList.remove('split-view');
+    openBtn.setAttribute('aria-expanded', 'false');
+    formTitle.textContent = 'Requisition Form';
+    submitBtn.textContent = 'Save Requisition';
+  };
 
   result.onchange = () => status2Wrap.classList.toggle('hidden', result.value !== 'Reshoot');
 
@@ -746,6 +809,10 @@ function setupRequisitionPage() {
     }, 'REQ');
     formPanel.classList.add('hidden');
     pageMain?.classList.remove('split-view');
+    openBtn.setAttribute('aria-expanded', 'false');
+    formTitle.textContent = 'Requisition Form';
+    submitBtn.textContent = 'Save Requisition';
+    editId = '';
     if (typeof setSyncStatus === 'function') setSyncStatus({ ok: true, message: 'Requisition saved successfully.' });
     render();
   });

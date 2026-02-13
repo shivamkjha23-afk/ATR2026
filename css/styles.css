@@ -27,6 +27,30 @@ html[data-theme='light'] {
 body { margin: 0; font-family: Arial, sans-serif; background: var(--bg); color: var(--text); }
 a { color: inherit; text-decoration: none; }
 
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button:hover, .btn:hover {
+  filter: brightness(1.08);
+}
+
+tr:hover td { background: rgba(148, 163, 184, 0.08); }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .landing-body { display: grid; place-items: center; min-height: 100vh; }
 .landing-container { width: min(700px, 92vw); }
 .landing-card { background: var(--panel); padding: 2rem; border-radius: 12px; border: 1px solid var(--border); }
@@ -186,8 +210,11 @@ th { color: var(--muted); }
 
 .inspection-main.split-view { display: grid; grid-template-columns: 1.4fr 1fr; gap: 0.9rem; align-items: start; }
 .inspection-main.split-view .form-card { position: sticky; top: 0.8rem; }
+.page-main.split-view { display: grid; grid-template-columns: 1.35fr 1fr; gap: 0.9rem; align-items: start; }
+.page-main.split-view .form-card { position: sticky; top: 0.8rem; }
+
 
 @media (max-width: 1180px) {
-  .inspection-main.split-view { grid-template-columns: 1fr; }
-  .inspection-main.split-view .form-card { position: static; }
+  .inspection-main.split-view, .page-main.split-view { grid-template-columns: 1fr; }
+  .inspection-main.split-view .form-card, .page-main.split-view .form-card { position: static; }
 }
