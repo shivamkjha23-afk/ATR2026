@@ -112,103 +112,47 @@ function renderUnitTable(headers, rows) {
   `;
 }
 
-function sectionVessel() {
-  const source = getCollection('inspections').filter((r) => r.equipment_type === 'Vessel');
+function sectionInspection(title, type, chartId, includeOpportunity = false) {
+  const source = getCollection('inspections').filter((r) => r.equipment_type === type);
   const summary = computeSummary(source, { mode: 'inspection' });
   const grouped = groupByUnit(source);
   const units = Object.keys(grouped);
 
   const tableRows = units.map((unit) => {
-    const unitSummary = computeSummary(grouped[unit], { mode: 'inspection' });
-    return [
-      unit,
-      unitSummary.planned,
-      unitSummary.opportunity,
-      unitSummary.todayCompleted,
-      unitSummary.completed
-    ];
+    const unitRows = grouped[unit];
+    const unitSummary = computeSummary(unitRows, { mode: 'inspection' });
+    return includeOpportunity
+      ? [unit, unitSummary.planned + unitSummary.opportunity, unitSummary.todayCompleted, unitSummary.completed]
+      : [unit, unitSummary.planned, unitSummary.completed, unitSummary.todayCompleted];
   });
 
-  const plannedData = units.map((u) => computeSummary(grouped[u], { mode: 'inspection' }).planned);
-  const opportunityData = units.map((u) => computeSummary(grouped[u], { mode: 'inspection' }).opportunity);
+  const cards = [
+    { label: 'Total Planned', value: summary.planned },
+    includeOpportunity ? { label: 'Total Opportunity', value: summary.opportunity } : null,
+    { label: 'In Progress', value: summary.inProgress },
+    { label: 'Completed', value: summary.completed }
+  ].filter(Boolean);
+
+  const sectionHtml = `
+    <section class="table-card">
+      <h2>${title}</h2>
+      ${renderSummaryCards(cards)}
+      ${renderUnitTable(includeOpportunity ? ['Unit', 'Planned + Opportunity', 'Completed Today', 'Total Completed'] : ['Unit', 'Total Planned', 'Total Completed', `Today\'s Completed`], tableRows)}
+      <article class="chart-card"><canvas id="${chartId}"></canvas></article>
+    </section>
+  `;
+
+  const plannedData = units.map((u) => {
+    const unitSummary = computeSummary(grouped[u], { mode: 'inspection' });
+    return includeOpportunity ? unitSummary.planned + unitSummary.opportunity : unitSummary.planned;
+  });
   const completedData = units.map((u) => computeSummary(grouped[u], { mode: 'inspection' }).completed);
-  const totalTarget = units.map((_, i) => (plannedData[i] || 0) + (opportunityData[i] || 0));
-  const percentData = units.map((_, i) => {
-    const target = totalTarget[i];
-    return target ? Number(((completedData[i] / target) * 100).toFixed(1)) : 0;
+  const percentData = units.map((u, idx) => {
+    const planned = plannedData[idx] || 0;
+    return planned ? Number(((completedData[idx] / planned) * 100).toFixed(1)) : 0;
   });
 
-  return {
-    html: `
-      <section class="table-card">
-        <h2>Vessel Dashboard</h2>
-        ${renderSummaryCards([
-          { label: 'Total Planned', value: summary.planned },
-          { label: 'Total Opportunity', value: summary.opportunity },
-          { label: 'In Progress', value: summary.inProgress },
-          { label: 'Completed', value: summary.completed }
-        ])}
-        ${renderUnitTable(['Unit', 'Planned', 'Opportunity', 'Completed Today', 'Total Completed'], tableRows)}
-        <article class="chart-card"><canvas id="vesselAnalyticsChart"></canvas></article>
-      </section>
-    `,
-    chart: () => {
-      const labels = units;
-      const canvas = 'vesselAnalyticsChart';
-      const chartCanvas = document.getElementById(canvas);
-      if (!chartCanvas || typeof Chart === 'undefined') return;
-      if (DASHBOARD_CHARTS[canvas]) DASHBOARD_CHARTS[canvas].destroy();
-      DASHBOARD_CHARTS[canvas] = new Chart(chartCanvas, {
-        type: 'bar',
-        data: {
-          labels,
-          datasets: [
-            { label: 'Planned', data: plannedData, backgroundColor: '#0ea5e9' },
-            { label: 'Opportunity', data: opportunityData, backgroundColor: '#a855f7' },
-            { label: 'Completed', data: completedData, backgroundColor: '#22c55e' },
-            { label: '% Completed', data: percentData, type: 'line', yAxisID: 'y1', borderColor: '#f59e0b', backgroundColor: '#f59e0b', tension: 0.2 }
-          ]
-        },
-        options: {
-          responsive: true,
-          interaction: { mode: 'index', intersect: false },
-          scales: {
-            y: { beginAtZero: true },
-            y1: { beginAtZero: true, max: 100, position: 'right', grid: { drawOnChartArea: false } }
-          }
-        }
-      });
-    }
-  };
-}
-
-function sectionInspection(title, type, chartId) {
-  const source = getCollection('inspections').filter((r) => r.equipment_type === type);
-  const grouped = groupByUnit(source);
-  const units = Object.keys(grouped);
-
-  const tableRows = units.map((unit) => {
-    const unitSummary = computeSummary(grouped[unit], { mode: 'inspection' });
-    return [unit, unitSummary.planned, unitSummary.completed, unitSummary.todayCompleted];
-  });
-
-  const plannedData = units.map((u) => computeSummary(grouped[u], { mode: 'inspection' }).planned);
-  const completedData = units.map((u) => computeSummary(grouped[u], { mode: 'inspection' }).completed);
-  const percentData = units.map((_, idx) => {
-    const target = plannedData[idx] || 0;
-    return target ? Number(((completedData[idx] / target) * 100).toFixed(1)) : 0;
-  });
-
-  return {
-    html: `
-      <section class="table-card">
-        <h2>${title}</h2>
-        ${renderUnitTable(['Unit', 'Total Planned', 'Total Completed', `Today's Completed`], tableRows)}
-        <article class="chart-card"><canvas id="${chartId}"></canvas></article>
-      </section>
-    `,
-    chart: () => renderBarChart(chartId, units, plannedData, completedData, percentData)
-  };
+  return { html: sectionHtml, chart: () => renderBarChart(chartId, units, plannedData, completedData, percentData) };
 }
 
 function sectionRequisitionRT() {
@@ -264,9 +208,9 @@ function renderDashboard() {
   const root = document.getElementById('dashboardRoot');
   if (!root) return;
 
-  const vessel = sectionVessel();
-  const pipeline = sectionInspection('Pipeline Dashboard', 'Pipeline', 'pipelineAnalyticsChart');
-  const steamTrap = sectionInspection('Steam Trap Dashboard', 'Steam Trap', 'steamTrapAnalyticsChart');
+  const vessel = sectionInspection('Vessel Dashboard', 'Vessel', 'vesselAnalyticsChart', true);
+  const pipeline = sectionInspection('Pipeline Dashboard', 'Pipeline', 'pipelineAnalyticsChart', false);
+  const steamTrap = sectionInspection('Steam Trap Dashboard', 'Steam Trap', 'steamTrapAnalyticsChart', false);
   const requisition = sectionRequisitionRT();
 
   root.innerHTML = [
