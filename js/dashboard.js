@@ -1,5 +1,8 @@
 const DASHBOARD_CHARTS = {};
-const DASHBOARD_STATE = { vesselInspectionScopeFilter: 'All' };
+const DASHBOARD_STATE = {
+  vesselInspectionScopeFilter: 'All',
+  steamTrapInspectionScopeFilter: 'All'
+};
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -117,6 +120,8 @@ function normalizeInspectionForm(value) {
   if (['boroscopy', 'borescopy'].includes(normalized)) return 'boroscopy';
   if (normalized === 'internal') return 'internal';
   if (normalized === 'external') return 'external';
+  if (normalized === 'hot') return 'hot';
+  if (normalized === 'cold') return 'cold';
   return normalized;
 }
 
@@ -125,6 +130,8 @@ function inspectionFormLabel(value) {
   if (normalized === 'boroscopy') return 'BOROSCOPY';
   if (normalized === 'internal') return 'INTERNAL';
   if (normalized === 'external') return 'EXTERNAL';
+  if (normalized === 'hot') return 'HOT';
+  if (normalized === 'cold') return 'COLD';
   return String(value || '').trim();
 }
 
@@ -282,6 +289,7 @@ function sectionInspection(title, type, chartId, options = {}) {
   const includeOpportunity = options.includeOpportunity === true;
   const enableInspectionScopeFilter = options.enableInspectionScopeFilter === true;
   const selectedInspectionScopeFilter = options.inspectionScopeFilter || 'All';
+  const inspectionScopeStateKey = options.inspectionScopeStateKey || '';
   const normalizedSelectedForm = normalizeInspectionForm(selectedInspectionScopeFilter);
 
   const baseRows = getCollection('inspections').filter((r) => r.equipment_type === type);
@@ -317,7 +325,7 @@ function sectionInspection(title, type, chartId, options = {}) {
   const filterHtml = enableInspectionScopeFilter
     ? `<div class="filter-tabs dashboard-filter-tabs">${inspectionScopeOptions.map((inspectionScope) => {
       const active = normalizeInspectionForm(inspectionScope) === normalizedSelectedForm;
-      return `<button type="button" class="btn tab-btn vessel-scope-filter-btn ${active ? 'active' : ''}" data-inspection-scope="${inspectionScope}">${inspectionScope}</button>`;
+      return `<button type="button" class="btn tab-btn inspection-scope-filter-btn ${active ? 'active' : ''}" data-inspection-scope="${inspectionScope}" data-inspection-scope-key="${inspectionScopeStateKey}">${inspectionScope}</button>`;
     }).join('')}</div>`
     : '';
 
@@ -411,10 +419,15 @@ function renderDashboard() {
   const vessel = sectionInspection('Vessel Dashboard', 'Vessel', 'vesselAnalyticsChart', {
     includeOpportunity: true,
     enableInspectionScopeFilter: true,
+    inspectionScopeStateKey: 'vesselInspectionScopeFilter',
     inspectionScopeFilter: DASHBOARD_STATE.vesselInspectionScopeFilter
   });
   const pipeline = sectionInspection('Pipeline Dashboard', 'Pipeline', 'pipelineAnalyticsChart');
-  const steamTrap = sectionInspection('Steam Trap Dashboard', 'Steam Trap', 'steamTrapAnalyticsChart');
+  const steamTrap = sectionInspection('Steam Trap Dashboard', 'Steam Trap', 'steamTrapAnalyticsChart', {
+    enableInspectionScopeFilter: true,
+    inspectionScopeStateKey: 'steamTrapInspectionScopeFilter',
+    inspectionScopeFilter: DASHBOARD_STATE.steamTrapInspectionScopeFilter
+  });
   const requisition = sectionRequisitionRT();
 
   root.innerHTML = [
@@ -430,10 +443,12 @@ function renderDashboard() {
   steamTrap.chart();
   requisition.chart();
 
-  const vesselFilterButtons = root.querySelectorAll('.vessel-scope-filter-btn');
-  vesselFilterButtons.forEach((btn) => {
+  const inspectionFilterButtons = root.querySelectorAll('.inspection-scope-filter-btn');
+  inspectionFilterButtons.forEach((btn) => {
     btn.addEventListener('click', () => {
-      DASHBOARD_STATE.vesselInspectionScopeFilter = btn.dataset.inspectionScope || 'All';
+      const scopeKey = btn.dataset.inspectionScopeKey;
+      if (!scopeKey || !(scopeKey in DASHBOARD_STATE)) return;
+      DASHBOARD_STATE[scopeKey] = btn.dataset.inspectionScope || 'All';
       renderDashboard();
     });
   });
