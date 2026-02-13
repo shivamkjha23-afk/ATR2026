@@ -92,7 +92,7 @@ body.sidebar-open .sidebar { transform: translateX(0); }
 .actions { display: flex; gap: 0.7rem; flex-wrap: wrap; }
 .actions .btn { margin-bottom: 0; width: auto; }
 
-.list-actions { display: flex; gap: 0.8rem; align-items: end; flex-wrap: wrap; margin-bottom: 0.8rem; }
+.list-actions { display: flex; gap: 0.8rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.8rem; }
 .list-actions h2 { margin: 0 auto 0 0; }
 .filter-tabs { display: flex; gap: 0.5rem; margin-bottom: 0.8rem; flex-wrap: wrap; }
 .tab-btn { width: auto; margin: 0; }

@@ -644,6 +644,7 @@ ${(row.images || []).join('\n')}
       form.reset();
       preview.innerHTML = '';
       panel.classList.add('hidden');
+      pageMain?.classList.remove('split-view');
       if (typeof setSyncStatus === 'function') setSyncStatus({ ok: true, message: 'Observation and images saved to cloud.' });
       refreshCompletedInspectionTags();
       render();
@@ -662,6 +663,7 @@ function setupRequisitionPage() {
   const formPanel = document.getElementById('requisitionFormPanel');
   const form = document.getElementById('requisitionForm');
   const tbody = document.getElementById('requisitionTableBody');
+  const pageMain = document.getElementById('requisitionMain');
   const result = document.getElementById('reqResult');
   const status2Wrap = document.getElementById('status2Wrap');
   let editId = '';
@@ -703,6 +705,8 @@ function setupRequisitionPage() {
         });
         status2Wrap.classList.toggle('hidden', row.result !== 'Reshoot');
         formPanel.classList.remove('hidden');
+        pageMain?.classList.add('split-view');
+        formPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
       };
     });
 
@@ -716,9 +720,12 @@ function setupRequisitionPage() {
     form.reset();
     status2Wrap.classList.add('hidden');
     formPanel.classList.remove('hidden');
+    pageMain?.classList.add('split-view');
+    formPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById('reqTag')?.focus();
   };
 
-  document.getElementById('closeRequisitionFormBtn').onclick = () => formPanel.classList.add('hidden');
+  document.getElementById('closeRequisitionFormBtn').onclick = () => { formPanel.classList.add('hidden'); pageMain?.classList.remove('split-view'); };
 
   result.onchange = () => status2Wrap.classList.toggle('hidden', result.value !== 'Reshoot');
 
@@ -738,6 +745,7 @@ function setupRequisitionPage() {
       remarks: document.getElementById('reqRemarks').value
     }, 'REQ');
     formPanel.classList.add('hidden');
+    pageMain?.classList.remove('split-view');
     if (typeof setSyncStatus === 'function') setSyncStatus({ ok: true, message: 'Requisition saved successfully.' });
     render();
   });
@@ -854,30 +862,34 @@ function setupAdminPanel() {
 function setupSyncStatusUI() {
   const existing = document.getElementById('syncStatusBanner');
   if (existing) return;
-  const container = document.querySelector('.content') || document.querySelector('.landing-card') || document.body;
-  if (!container) return;
 
   const banner = document.createElement('div');
   banner.id = 'syncStatusBanner';
-  banner.className = 'sync-status-banner';
+  banner.className = 'sync-status-banner popup';
   banner.textContent = 'Cloud sync ready.';
-  container.insertBefore(banner, container.firstChild);
+  document.body.appendChild(banner);
+
+  let hideTimer;
+  function showStatus(message, ok = true) {
+    banner.textContent = message;
+    banner.classList.toggle('ok', ok);
+    banner.classList.toggle('error', !ok);
+    banner.classList.add('show');
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => banner.classList.remove('show'), 2400);
+  }
 
   const raw = localStorage.getItem(STORAGE_KEYS.syncStatus);
   if (raw) {
     try {
       const parsed = JSON.parse(raw);
-      banner.textContent = parsed.message || banner.textContent;
-      banner.classList.toggle('ok', parsed.ok !== false);
-      banner.classList.toggle('error', parsed.ok === false);
+      showStatus(parsed.message || 'Cloud sync ready.', parsed.ok !== false);
     } catch (_) {}
   }
 
   window.addEventListener('atr-sync-status', (evt) => {
     const ok = evt.detail?.ok !== false;
-    banner.textContent = evt.detail?.message || (ok ? 'Cloud sync success.' : 'Cloud sync failed.');
-    banner.classList.toggle('ok', ok);
-    banner.classList.toggle('error', !ok);
+    showStatus(evt.detail?.message || (ok ? 'Cloud sync success.' : 'Cloud sync failed.'), ok);
   });
 }
 
