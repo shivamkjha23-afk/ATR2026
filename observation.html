@@ -48,8 +48,17 @@
         <section class="form-card hidden" id="observationFormPanel">
           <h2>Add Observation</h2>
           <form id="observationForm" class="form-grid">
+            <label>Completed Inspection Tag
+              <select id="obsInspectionTag">
+                <option value="">Select from completed inspections (optional)</option>
+              </select>
+            </label>
             <label>Tag Number <input type="text" id="obsTag" required /></label>
-            <label>Unit <input type="text" id="obsUnit" required /></label>
+            <label>Unit
+              <select id="obsUnit" required>
+                <option value="">Select Unit</option>
+              </select>
+            </label>
             <label>Location <input type="text" id="obsLocation" required /></label>
             <label>Status
               <select id="obsStatus">
