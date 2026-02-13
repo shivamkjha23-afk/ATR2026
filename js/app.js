@@ -77,35 +77,136 @@ function setHeaderUser() {
   });
 }
 
+function formatDateLabel(value) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function daysSince(value) {
+  if (!value) return '-';
+  const ms = Date.now() - new Date(value).getTime();
+  if (Number.isNaN(ms)) return '-';
+  return Math.max(0, Math.floor(ms / (1000 * 60 * 60 * 24)));
+}
+
+function ensurePdfLib() {
+  return window.jspdf?.jsPDF || null;
+}
+
+function drawReportHeader(doc, title, subtitle = '') {
+  doc.setDrawColor(15, 23, 42);
+  doc.setLineWidth(0.8);
+  doc.rect(8, 8, 194, 281);
+  doc.setFillColor(15, 23, 42);
+  doc.rect(8, 8, 194, 24, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.text('ATR-2026 Shutdown Inspection Tracker', 12, 18);
+  doc.setFontSize(11);
+  doc.text(title, 12, 26);
+  doc.setTextColor(30, 41, 59);
+  doc.setFont('helvetica', 'normal');
+  if (subtitle) doc.text(subtitle, 12, 38);
+}
+
+function addPdfField(doc, label, value, y) {
+  doc.setFont('helvetica', 'bold');
+  doc.text(`${label}:`, 12, y);
+  doc.setFont('helvetica', 'normal');
+  const lines = doc.splitTextToSize(String(value || '-'), 152);
+  doc.text(lines, 52, y);
+  return y + Math.max(8, lines.length * 5 + 2);
+}
+
+function buildObservationReportPdf(row) {
+  const jsPDF = ensurePdfLib();
+  if (!jsPDF) {
+    alert('PDF library not loaded. Please refresh and try again.');
+    return '';
+  }
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  drawReportHeader(doc, 'Observation Email Report', `Generated on ${formatDateLabel(new Date().toISOString())}`);
+
+  let y = 48;
+  y = addPdfField(doc, 'Tag Number', row.tag_number, y);
+  y = addPdfField(doc, 'Unit', row.unit, y);
+  y = addPdfField(doc, 'Location', row.location, y);
+  y = addPdfField(doc, 'Status', row.status, y);
+  y = addPdfField(doc, 'Observation Date', formatDateLabel(row.timestamp), y);
+  y = addPdfField(doc, 'Job Due Since (days)', daysSince(row.timestamp), y);
+  y = addPdfField(doc, 'Observation Details', row.observation, y);
+  y = addPdfField(doc, 'Recommendation', row.recommendation, y);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Attached Image Links:', 12, y);
+  doc.setFont('helvetica', 'normal');
+  y += 6;
+  (row.images || []).forEach((img, idx) => {
+    const text = `${idx + 1}. ${img}`;
+    const lines = doc.splitTextToSize(text, 184);
+    doc.text(lines, 12, y);
+    y += Math.max(6, lines.length * 5 + 1);
+  });
+  if (!(row.images || []).length) doc.text('No images uploaded.', 12, y);
+
+  const fileName = `Observation_Report_${sanitizeName(row.tag_number || row.id || 'report')}.pdf`;
+  doc.save(fileName);
+  return fileName;
+}
+
+function buildVesselInspectionPdf(vesselRows) {
+  const jsPDF = ensurePdfLib();
+  if (!jsPDF) {
+    alert('PDF library not loaded. Please refresh and try again.');
+    return;
+  }
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  drawReportHeader(doc, 'Vessel Inspection Report', `Generated on ${formatDateLabel(new Date().toISOString())}`);
+
+  let y = 42;
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.rect(10, y, 190, 8);
+  doc.text('Tag', 12, y + 5.5);
+  doc.text('Unit', 42, y + 5.5);
+  doc.text('Name', 64, y + 5.5);
+  doc.text('Status', 108, y + 5.5);
+  doc.text('Final', 136, y + 5.5);
+  doc.text('Updated By', 162, y + 5.5);
+  y += 8;
+
+  doc.setFont('helvetica', 'normal');
+  vesselRows.forEach((row) => {
+    if (y > 268) {
+      doc.addPage();
+      drawReportHeader(doc, 'Vessel Inspection Report (cont.)');
+      y = 42;
+    }
+    doc.rect(10, y, 190, 8);
+    doc.text((row.equipment_tag_number || '-').slice(0, 15), 12, y + 5.5);
+    doc.text((row.unit_name || '-').slice(0, 10), 42, y + 5.5);
+    doc.text((row.equipment_name || '-').slice(0, 20), 64, y + 5.5);
+    doc.text((row.status || '-').slice(0, 16), 108, y + 5.5);
+    doc.text((row.final_status || '-').slice(0, 10), 136, y + 5.5);
+    doc.text((row.updated_by || '-').slice(0, 16), 162, y + 5.5);
+    y += 8;
+  });
+
+  const lastUpdated = vesselRows.slice().sort((a, b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')))[0];
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Signed by: ${lastUpdated?.updated_by || 'N/A'}`, 12, 278);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Last update: ${formatDateLabel(lastUpdated?.timestamp)}`, 90, 278);
+  doc.save('Vessel_Inspection_Report.pdf');
+}
+
 function moveTopControlsToSidebar() {
   if (document.body.dataset.page === 'login') return;
-  const sidebarNav = document.querySelector('.sidebar nav');
   const headerRight = document.querySelector('.header-right');
-  if (!sidebarNav || !headerRight) return;
-
-  let extras = document.getElementById('sidebarMenuExtras');
-  if (!extras) {
-    extras = document.createElement('div');
-    extras.id = 'sidebarMenuExtras';
-    extras.className = 'sidebar-menu-extras';
-    sidebarNav.appendChild(extras);
-  }
-
-  const loggedInWrap = headerRight.querySelector('p');
-  const themeBtn = headerRight.querySelector('#themeToggleBtn');
-
-  if (loggedInWrap && !extras.contains(loggedInWrap)) {
-    loggedInWrap.classList.add('sidebar-signin');
-    const label = loggedInWrap.firstChild;
-    if (label && label.nodeType === Node.TEXT_NODE) label.textContent = 'Signed in as: ';
-    extras.appendChild(loggedInWrap);
-  }
-
-  if (themeBtn && !extras.contains(themeBtn)) {
-    themeBtn.classList.add('sidebar-theme-btn');
-    extras.appendChild(themeBtn);
-  }
-
+  if (headerRight) headerRight.classList.add('hidden');
   document.body.classList.add('top-controls-moved');
 }
 
@@ -117,25 +218,35 @@ function logoutCurrentUser() {
 
 function setupUserMenu() {
   if (document.body.dataset.page === 'login') return;
-  const extras = document.getElementById('sidebarMenuExtras') || document.querySelector('.sidebar nav');
-  if (!extras || extras.querySelector('.user-menu-wrap')) return;
+  const sidebarNav = document.querySelector('.sidebar nav');
+  if (!sidebarNav || sidebarNav.querySelector('.user-menu-wrap')) return;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'user-menu-wrap sidebar-profile-wrap sidebar-menu-extras';
 
   const userBtn = document.createElement('button');
   userBtn.type = 'button';
   userBtn.className = 'btn user-menu';
-  userBtn.textContent = 'Profile ⌄';
+  userBtn.textContent = `Menu: ${getLoggedInUser()} ⌄`;
 
   const menu = document.createElement('div');
   menu.className = 'user-menu-pop hidden';
-  menu.innerHTML = `<button type="button" class="btn logout-btn">Logout</button>`;
+  menu.innerHTML = `
+    <p class="sidebar-signin">Signed in as: <span>${getLoggedInUser()}</span></p>
+    <button type="button" class="btn theme-inside-menu">Toggle Theme</button>
+    <button type="button" class="btn logout-btn">Logout</button>
+  `;
 
-  const wrap = document.createElement('div');
-  wrap.className = 'user-menu-wrap sidebar-profile-wrap';
   wrap.append(userBtn, menu);
-  extras.appendChild(wrap);
+  sidebarNav.appendChild(wrap);
 
   userBtn.addEventListener('click', () => menu.classList.toggle('hidden'));
   menu.querySelector('.logout-btn').addEventListener('click', logoutCurrentUser);
+  menu.querySelector('.theme-inside-menu').addEventListener('click', () => {
+    localStorage.setItem('atr_theme', getTheme() === 'dark' ? 'light' : 'dark');
+    applyTheme();
+  });
+
   document.addEventListener('click', (evt) => {
     if (!wrap.contains(evt.target)) menu.classList.add('hidden');
   });
@@ -531,6 +642,15 @@ function setupInspectionPage() {
     renderInspectionList();
   };
 
+  document.getElementById('downloadVesselReportBtn')?.addEventListener('click', () => {
+    const vesselRows = getCollection('inspections').filter((row) => row.equipment_type === 'Vessel');
+    if (!vesselRows.length) {
+      alert('No vessel inspections available for report generation.');
+      return;
+    }
+    buildVesselInspectionPdf(vesselRows);
+  });
+
   unitFilter.onchange = renderInspectionList;
   tagSearch.oninput = renderInspectionList;
   renderInspectionList();
@@ -648,22 +768,37 @@ function setupObservationPage() {
       btn.onclick = () => {
         const row = getCollection('observations').find((x) => x.id === btn.dataset.id);
         if (!row) return;
-        const subject = encodeURIComponent(`ATR Observation - ${row.tag_number}`);
-        const body = encodeURIComponent(`Tag: ${row.tag_number}
-Unit: ${row.unit}
-Location: ${row.location}
+        const reportFileName = buildObservationReportPdf(row);
+        const imageLinks = (row.images || []).map((img, idx) => `${idx + 1}. ${img}`).join('\n');
+        const dueDays = daysSince(row.timestamp);
+        const subject = encodeURIComponent(`ATR Observation Report - ${row.tag_number || row.id}`);
+        const body = encodeURIComponent(`Dear Team,
 
-Description:
-${row.observation}
+Please find below the detailed observation report for planning and closure:
+
+Tag Number: ${row.tag_number || '-'}
+Unit: ${row.unit || '-'}
+Location: ${row.location || '-'}
+Status: ${row.status || '-'}
+Observation Date: ${formatDateLabel(row.timestamp)}
+Job Due Since: ${dueDays} day(s)
+
+Observation Details:
+${row.observation || '-'}
 
 Recommendation:
-${row.recommendation}
+${row.recommendation || '-'}
 
-Image paths:
-${(row.images || []).join('\n')}
+Attached/Reference Image URLs:
+${imageLinks || 'No images uploaded'}
 
-(Outlook note: attach images from saved paths.)`);
-        window.location.href = `mailto:?subject=${subject}&body=${body}&attachment=${encodeURIComponent((row.images || []).join(';'))}`;
+PDF Report: ${reportFileName || 'Generated in browser download'}
+
+Kindly review and provide closure action plan with timeline.
+
+Regards,
+${getLoggedInUser()}`);
+        window.location.href = `mailto:?subject=${subject}&body=${body}`;
       };
     });
 
