@@ -27,22 +27,14 @@
           <button id="themeToggleBtn" class="btn" type="button">Toggle Theme</button>
         </div>
       </header>
-      <main>
-        <section class="cards-grid">
-          <article class="card"><h3>Total Equipment</h3><p id="totalCount">0</p></article>
-          <article class="card"><h3>Completed</h3><p id="completedCount">0</p></article>
-          <article class="card"><h3>In Progress</h3><p id="inProgressCount">0</p></article>
-          <article class="card"><h3>Not Started</h3><p id="notStartedCount">0</p></article>
-          <article class="card"><h3>Today's Progress</h3><p id="todaysProgressCount">0</p></article>
-        </section>
-
-        <section class="charts-grid">
-          <article class="chart-card"><h3>Vessel Summary</h3><canvas id="vesselChart"></canvas></article>
-          <article class="chart-card"><h3>Pipeline Summary</h3><canvas id="pipelineChart"></canvas></article>
-          <article class="chart-card"><h3>Steam Trap Summary</h3><canvas id="steamTrapChart"></canvas></article>
-          <article class="chart-card wide"><h3>Unit Comparison (Drill-down on click)</h3><canvas id="unitProgressChart"></canvas></article>
-        </section>
-      </main>
+      <main id="dashboardRoot"></main>
+      <div class="hidden" aria-hidden="true">
+        <span id="totalCount"></span>
+        <span id="completedCount"></span>
+        <span id="inProgressCount"></span>
+        <span id="notStartedCount"></span>
+        <span id="todaysProgressCount"></span>
+      </div>
     </section>
   </div>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
