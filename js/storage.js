@@ -178,6 +178,28 @@ function upsertById(name, payload, prefix) {
   saveCollection(name, rows);
 }
 
+function batchUpsertById(name, payloads = [], prefix) {
+  if (!Array.isArray(payloads) || !payloads.length) return 0;
+  const rows = getCollection(name);
+  const byId = new Map(rows.map((row, index) => [row.id, index]));
+  let changed = 0;
+
+  payloads.forEach((payload) => {
+    const rowId = payload.id || generateId(prefix);
+    if (byId.has(rowId)) {
+      const idx = byId.get(rowId);
+      rows[idx] = withAudit({ ...rows[idx], ...payload, id: rowId }, true);
+    } else {
+      rows.push(withAudit({ ...payload, id: rowId }));
+      byId.set(rowId, rows.length - 1);
+    }
+    changed += 1;
+  });
+
+  saveCollection(name, rows);
+  return changed;
+}
+
 function deleteById(name, id) {
   const rows = getCollection(name).filter((r) => r.id !== id);
   saveCollection(name, rows);

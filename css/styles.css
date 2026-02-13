@@ -56,7 +56,7 @@ tr:hover td { background: rgba(148, 163, 184, 0.08); }
 .landing-card { background: var(--panel); padding: 2rem; border-radius: 12px; border: 1px solid var(--border); }
 .subtitle, .hint { color: var(--muted); }
 
-input, select, textarea, button {
+input, select, textarea {
   width: 100%;
   padding: 0.65rem 0.7rem;
   margin-top: 0.35rem;
@@ -68,7 +68,15 @@ input, select, textarea, button {
 }
 textarea { min-height: 88px; resize: vertical; }
 
-.btn { cursor: pointer; border: 1px solid #64748b; background: #1f2937; color: #fff; min-width: 140px; height: 40px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.9rem; }
+button {
+  border-radius: 8px;
+  border: 1px solid var(--field-border);
+  background: var(--field-bg);
+  color: var(--text);
+}
+
+
+.btn { cursor: pointer; border: 1px solid #64748b; background: #1f2937; color: #fff; min-width: 128px; min-height: 40px; width: auto; display: inline-flex; align-items: center; justify-content: center; padding: 0.58rem 0.88rem; font-size: 0.9rem; line-height: 1.2; }
 html[data-theme='light'] .btn { background: #334155; }
 .btn-primary { background: var(--accent); border-color: #0284c7; color: white; }
 
@@ -234,3 +242,27 @@ th { color: var(--muted); }
 .sidebar-profile-wrap .user-menu-pop { min-width: 250px; }
 .sidebar-profile-wrap .user-menu-pop .btn { margin-bottom: 0.45rem; }
 .sidebar-profile-wrap .user-menu-pop .btn:last-child { margin-bottom: 0; }
+
+
+.page-toolbar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.7rem;
+  align-items: end;
+}
+
+.page-toolbar > label {
+  margin: 0;
+}
+
+.page-toolbar .btn {
+  width: 100%;
+  margin: 0;
+}
+
+.table-wrap td .btn {
+  min-width: 84px;
+  min-height: 32px;
+  padding: 0.34rem 0.6rem;
+  font-size: 0.8rem;
+}
