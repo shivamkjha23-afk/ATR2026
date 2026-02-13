@@ -226,3 +226,11 @@ th { color: var(--muted); }
   .inspection-main.split-view, .page-main.split-view { grid-template-columns: 1fr; }
   .inspection-main.split-view .form-card, .page-main.split-view .form-card { position: static; }
 }
+
+
+.sidebar-profile-wrap.sidebar-menu-extras { margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px solid var(--border); }
+.sidebar-profile-wrap .sidebar-signin { margin: 0 0 0.5rem; }
+.sidebar-profile-wrap .sidebar-signin span { display: block; font-size: 0.85rem; color: var(--muted); }
+.sidebar-profile-wrap .user-menu-pop { min-width: 250px; }
+.sidebar-profile-wrap .user-menu-pop .btn { margin-bottom: 0.45rem; }
+.sidebar-profile-wrap .user-menu-pop .btn:last-child { margin-bottom: 0; }
