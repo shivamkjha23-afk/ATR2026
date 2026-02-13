@@ -6,7 +6,7 @@ Static GitHub Pages-ready web app (HTML/CSS/Vanilla JS) using Firebase Firestore
 
 - Login page uses modern tabbed flow: **Sign In** and **Create Account**.
 - Login requires **User ID + Password**.
-- Users are stored in Firebase Firestore (`atr2026/runtime.users`).
+- Users are stored in Firebase Firestore (`runtime/runtime` document, chunked in `runtime/runtime/runtime_chunks`).
 - Admin can approve new requested users.
 - Every created/updated record stores:
   - `entered_by`
@@ -19,10 +19,13 @@ Default admin:
 
 ## Data Model (central runtime DB)
 
-All runtime data is stored directly in Firebase Firestore document:
-- `atr2026/runtime`
+Runtime metadata is stored in Firestore document:
+- `runtime/runtime`
 
-Document fields:
+Large collections are stored as chunk docs in subcollection:
+- `runtime/runtime/runtime_chunks`
+
+Runtime content includes:
 - `inspections[]`
 - `observations[]`
 - `requisitions[]`
@@ -44,7 +47,7 @@ This project now uses **Firebase Firestore + Cloudinary**:
 1. Open Firebase console for project `atr2026-6541f`.
 2. Enable **Authentication → Sign-in method → Google**.
 3. Enable **Firestore Database** in production mode.
-4. Create Firestore document path: `atr2026/runtime` (or let app create it automatically on first sync).
+4. Create Firestore document path: `runtime/runtime` (or let app create it automatically on first sync).
 5. Add your GitHub Pages domain in Firebase Auth authorized domains.
 6. In Cloudinary:
    - Create an **unsigned upload preset**.
@@ -62,8 +65,12 @@ Use admin-approved user list from runtime document for write control. Start with
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /atr2026/runtime {
+    match /runtime/{docId} {
       allow read, write: if request.auth != null;
+
+      match /runtime_chunks/{chunkId} {
+        allow read, write: if request.auth != null;
+      }
     }
   }
 }
