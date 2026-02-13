@@ -183,9 +183,7 @@ async function replaceCloudChunks(db) {
   const chunks = runtimeChunksRef();
   const existing = await chunks.get();
 
-  if (!existing.empty) {
-    await commitDeleteDocsInBatches(existing.docs);
-  }
+  const existingDocs = existing.empty ? [] : existing.docs;
 
   const nextDocs = [];
 
@@ -201,6 +199,12 @@ async function replaceCloudChunks(db) {
   }
 
   await commitSetDocsInBatches(chunks, nextDocs);
+
+  if (existingDocs.length) {
+    const nextDocIds = new Set(nextDocs.map((doc) => doc.id));
+    const staleDocs = existingDocs.filter((docSnap) => !nextDocIds.has(docSnap.id));
+    await commitDeleteDocsInBatches(staleDocs);
+  }
 }
 
 
@@ -233,7 +237,7 @@ async function readCloudRuntimeDataFromPath(path) {
 
   const meta = metaSnap.data();
   if (meta.storage_format === 'chunked-v2') {
-    const chunksSnap = await runtimeChunksRef().get();
+    const chunksSnap = await runtimeChunksRef(path).get();
     if (chunksSnap.empty && Object.values(meta.counts || {}).some((count) => Number(count) > 0)) {
       throw new Error('Cloud runtime chunks are temporarily unavailable. Please retry sync.');
     }
