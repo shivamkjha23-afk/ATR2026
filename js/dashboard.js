@@ -477,7 +477,170 @@ function renderCharts() {
   renderDashboard();
 }
 
+function getDashboardJsPdf() {
+  if (typeof ensurePdfLib === 'function') return ensurePdfLib();
+  return window.jspdf?.jsPDF || null;
+}
+
+function addPdfTitle(doc, title, subtitle = '') {
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.text(title, 12, 16);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  if (subtitle) doc.text(subtitle, 12, 22);
+  doc.setDrawColor(148, 163, 184);
+  doc.line(10, 26, 200, 26);
+}
+
+function writeKeyValueList(doc, items, y) {
+  doc.setFontSize(10);
+  items.forEach((item) => {
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${item.label}:`, 12, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(String(item.value), 70, y);
+    y += 6;
+  });
+  return y;
+}
+
+function addTableRow(doc, columns, widths, y, isHeader = false) {
+  let x = 12;
+  doc.setFont('helvetica', isHeader ? 'bold' : 'normal');
+  columns.forEach((col, idx) => {
+    doc.rect(x, y - 4.5, widths[idx], 7);
+    const text = doc.splitTextToSize(String(col ?? '-'), widths[idx] - 2).slice(0, 2);
+    doc.text(text, x + 1, y);
+    x += widths[idx];
+  });
+}
+
+function renderInspectionSummaryRows(rows = []) {
+  const grouped = groupByUnit(rows);
+  return Object.keys(grouped).sort((a, b) => a.localeCompare(b)).map((unit) => {
+    const s = computeSummary(grouped[unit], { mode: 'inspection' });
+    return [unit, s.planned, s.opportunity, s.inProgress, s.completed, s.todayCompleted];
+  });
+}
+
+function exportDashboardPdf() {
+  const jsPDF = getDashboardJsPdf();
+  if (!jsPDF) {
+    alert('PDF library not loaded. Please refresh and try again.');
+    return;
+  }
+
+  const inspections = getCollection('inspections');
+  const observations = getCollection('observations');
+  const requisitions = getCollection('requisitions').filter((r) => (r.type || r.module_type) === 'RT');
+  const daySummary = calculateProgress(inspections);
+  const today = todayISO();
+  const todayObservationCompleted = observations.filter((r) => String(r.timestamp || '').slice(0, 10) === today && r.status === 'Completed').length;
+
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  addPdfTitle(doc, 'ATR-2026 Dashboard Export', `Generated on ${new Date().toLocaleString()}`);
+
+  let y = 34;
+  y = writeKeyValueList(doc, [
+    { label: 'Today\'s Inspection Progress', value: daySummary.todaysProgress },
+    { label: 'Today\'s Observation Completed', value: todayObservationCompleted },
+    { label: 'Total Inspections', value: daySummary.total },
+    { label: 'Completed', value: daySummary.completed },
+    { label: 'In Progress', value: daySummary.inProgress },
+    { label: 'Not Started', value: daySummary.notStarted }
+  ], y);
+
+  y += 3;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text('Inspection Dashboard Snapshot', 12, y);
+  y += 7;
+
+  const inspectionRows = renderInspectionSummaryRows(inspections);
+  const inspectionHeaders = ['Unit', 'Planned', 'Opportunity', 'In Prog.', 'Completed', 'Today'];
+  const inspectionWidths = [58, 20, 24, 24, 24, 20];
+  addTableRow(doc, inspectionHeaders, inspectionWidths, y, true);
+  y += 8;
+
+  inspectionRows.forEach((row) => {
+    if (y > 276) {
+      doc.addPage();
+      addPdfTitle(doc, 'ATR-2026 Dashboard Export (cont.)');
+      y = 34;
+      addTableRow(doc, inspectionHeaders, inspectionWidths, y, true);
+      y += 8;
+    }
+    addTableRow(doc, row, inspectionWidths, y);
+    y += 8;
+  });
+
+  if (y > 250) {
+    doc.addPage();
+    addPdfTitle(doc, 'ATR-2026 Dashboard Export (cont.)');
+    y = 34;
+  }
+
+  const requisitionSummary = computeSummary(requisitions, { mode: 'requisition' });
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text('Requisition (RT) Summary', 12, y);
+  y += 7;
+  y = writeKeyValueList(doc, [
+    { label: 'Total RT Requisitions', value: requisitionSummary.total },
+    { label: 'Completed', value: requisitionSummary.completed },
+    { label: 'In Progress', value: requisitionSummary.inProgress },
+    { label: 'Progress %', value: `${requisitionSummary.percent || 0}%` }
+  ], y);
+
+  doc.addPage();
+  addPdfTitle(doc, 'Observation Dashboard (Continuation)', `Date ${today}`);
+  y = 34;
+
+  const observationSummary = computeSummary(observations, { mode: 'observation' });
+  y = writeKeyValueList(doc, [
+    { label: 'Total Observations', value: observationSummary.total },
+    { label: 'In Progress', value: observationSummary.inProgress },
+    { label: 'Completed', value: observationSummary.completed }
+  ], y);
+
+  y += 4;
+  const obsHeaders = ['Tag', 'Unit', 'Status', 'Observed On', 'Recommendation'];
+  const obsWidths = [30, 32, 24, 28, 76];
+  addTableRow(doc, obsHeaders, obsWidths, y, true);
+  y += 8;
+
+  observations.forEach((row) => {
+    if (y > 276) {
+      doc.addPage();
+      addPdfTitle(doc, 'Observation Dashboard (cont.)');
+      y = 34;
+      addTableRow(doc, obsHeaders, obsWidths, y, true);
+      y += 8;
+    }
+    addTableRow(doc, [
+      row.tag_number || row.id || '-',
+      row.unit || '-',
+      row.status || '-',
+      String(row.timestamp || '').slice(0, 10) || '-',
+      row.recommendation || '-'
+    ], obsWidths, y);
+    y += 8;
+  });
+
+  doc.save(`ATR2026_Dashboard_Observation_${today}.pdf`);
+}
+
+function setupDashboardExportButton() {
+  const exportBtn = document.getElementById('exportDashboardPdfBtn');
+  if (!exportBtn) return;
+  exportBtn.addEventListener('click', exportDashboardPdf);
+}
+
 window.addEventListener('atr-db-updated', renderDashboard);
 window.addEventListener('DOMContentLoaded', () => {
-  if (document.body.dataset.page === 'dashboard') renderDashboard();
+  if (document.body.dataset.page === 'dashboard') {
+    renderDashboard();
+    setupDashboardExportButton();
+  }
 });
