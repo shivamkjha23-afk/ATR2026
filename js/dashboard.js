@@ -5,7 +5,20 @@ const DASHBOARD_STATE = {
 };
 
 function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const local = new Date(now.getTime() - (now.getTimezoneOffset() * 60000));
+  return local.toISOString().slice(0, 10);
+}
+
+function inspectionCompletionDateISO(row = {}) {
+  return String(
+    row.completed_at
+    || row.completion_date
+    || row.completion_datetime
+    || row.timestamp
+    || row.inspection_date
+    || ''
+  ).slice(0, 10);
 }
 
 function groupByUnit(rows = []) {
@@ -54,7 +67,7 @@ function computeSummary(rows = [], opts = {}) {
       opportunity,
       inProgress,
       completed,
-      todayCompleted: rows.filter((r) => r.inspection_date === today && (r.status === 'Completed' || r.final_status === 'Completed')).length,
+      todayCompleted: rows.filter((r) => inspectionCompletionDateISO(r) === today && (r.status === 'Completed' || r.final_status === 'Completed')).length,
       percent: rows.length ? Number(((completed / rows.length) * 100).toFixed(1)) : 0
     };
   }
@@ -149,8 +162,8 @@ function renderVesselProgressTable(rows = []) {
       unit,
       planned: plannedRows.length,
       opportunity: opportunityRows.length,
-      dayPlannedCompleted: plannedRows.filter((r) => r.inspection_date === today && isCompletedInspection(r)).length,
-      dayOpportunityCompleted: opportunityRows.filter((r) => r.inspection_date === today && isCompletedInspection(r)).length,
+      dayPlannedCompleted: plannedRows.filter((r) => inspectionCompletionDateISO(r) === today && isCompletedInspection(r)).length,
+      dayOpportunityCompleted: opportunityRows.filter((r) => inspectionCompletionDateISO(r) === today && isCompletedInspection(r)).length,
       cumulativePlannedCompleted: plannedRows.filter(isCompletedInspection).length,
       cumulativeOpportunityCompleted: opportunityRows.filter(isCompletedInspection).length,
       inProgress: unitRows.filter(isInProgressInspection).length
