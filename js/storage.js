@@ -43,6 +43,7 @@ let syncPending = false;
 let suppressSync = false;
 let realtimeStarted = false;
 let authReadyPromise = null;
+let cloudWriteChain = Promise.resolve();
 
 function nowStamp() {
   return new Date().toISOString();
@@ -552,7 +553,10 @@ async function initializeData() {
 async function syncAllToCloud(config = getCloudConfig()) {
   if (!config.enabled) return;
   await ensureFirebaseSession();
-  await writeCloudRuntimeData(buildDatabaseFilesPayload());
+  cloudWriteChain = cloudWriteChain
+    .catch(() => {})
+    .then(() => writeCloudRuntimeData(buildDatabaseFilesPayload()));
+  await cloudWriteChain;
   setSyncStatus({ ok: true, message: 'Saved to Firebase cloud successfully.' });
 }
 

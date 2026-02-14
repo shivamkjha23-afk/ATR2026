@@ -566,6 +566,7 @@ function setupInspectionPage() {
   const unitLists = document.getElementById('unitWiseLists');
   const formPanel = document.getElementById('inspectionFormPanel');
   const form = document.getElementById('inspectionForm');
+  const submitBtn = form?.querySelector('button[type="submit"]');
   const statusSelect = document.getElementById('status');
 
   unitFilter.insertAdjacentHTML('beforeend', '<option value="All">All Units</option>');
@@ -582,6 +583,7 @@ function setupInspectionPage() {
   const typeFilters = ['All', ...EQUIPMENT_TYPES];
   let activeType = 'All';
   let editId = '';
+  let saveInProgress = false;
 
   tabs.innerHTML = typeFilters.map((t) => `<button class="btn tab-btn ${t === 'All' ? 'active' : ''}" data-type="${t}" type="button">${t}</button>`).join('');
   tabs.querySelectorAll('.tab-btn').forEach((btn) => {
@@ -606,6 +608,8 @@ function setupInspectionPage() {
     document.getElementById('inspectionMain')?.classList.remove('split-view');
     form.reset();
     editId = '';
+    saveInProgress = false;
+    setButtonLoadingState(submitBtn, false, 'Save Update');
   }
 
   function filteredRows() {
@@ -685,6 +689,9 @@ function setupInspectionPage() {
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();
+    if (saveInProgress) return;
+    saveInProgress = true;
+    setButtonLoadingState(submitBtn, true, 'Save Update', 'Saving Update...');
     const payload = normalizeInspectionPayload({
       id: editId,
       unit_name: document.getElementById('unit_name').value,
@@ -760,6 +767,18 @@ function statusClass(status) {
   return '';
 }
 
+function setButtonLoadingState(button, isLoading, defaultText, loadingText = 'Saving...') {
+  if (!button) return;
+  if (!button.dataset.defaultText) button.dataset.defaultText = defaultText || button.textContent || 'Save';
+  button.disabled = Boolean(isLoading);
+  button.textContent = isLoading ? loadingText : (defaultText || button.dataset.defaultText);
+}
+
+function confirmDeleteRecord(recordType, summary = '') {
+  const summaryLine = summary ? `\n\n${summary}` : '';
+  return window.confirm(`Delete this ${recordType}? This action cannot be undone.${summaryLine}`);
+}
+
 function setupObservationPage() {
   if (document.body.dataset.page !== 'observation') return;
 
@@ -776,6 +795,7 @@ function setupObservationPage() {
   const openBtn = document.getElementById('openObservationFormBtn');
   let editId = '';
   let editImagePaths = [];
+  let saveInProgress = false;
 
   UNIT_OPTIONS.forEach((u) => obsUnit.insertAdjacentHTML('beforeend', `<option>${u}</option>`));
 
@@ -843,7 +863,14 @@ function setupObservationPage() {
     });
 
     tbody.querySelectorAll('.delete-obs').forEach((btn) => {
-      btn.onclick = () => { deleteById('observations', btn.dataset.id); render(); };
+      btn.onclick = () => {
+        const row = getCollection('observations').find((x) => x.id === btn.dataset.id);
+        if (!row) return;
+        const ok = confirmDeleteRecord('observation', `Tag: ${row.tag_number || '-'}\nUnit: ${row.unit || '-'}\nStatus: ${row.status || '-'}`);
+        if (!ok) return;
+        deleteById('observations', btn.dataset.id);
+        render();
+      };
     });
 
     tbody.querySelectorAll('.email-obs').forEach((btn) => {
@@ -919,6 +946,9 @@ ${getLoggedInUser()}`);
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (saveInProgress) return;
+    saveInProgress = true;
+    setButtonLoadingState(submitBtn, true, editId ? 'Update Observation' : 'Save Observation', 'Saving Observation...');
     try {
       const observationId = editId || generateId('OBS');
       const tagNo = document.getElementById('obsTag').value;
@@ -943,10 +973,14 @@ ${getLoggedInUser()}`);
       submitBtn.textContent = 'Save Observation';
       editId = '';
       editImagePaths = [];
+      saveInProgress = false;
+      setButtonLoadingState(submitBtn, false, 'Save Observation');
       if (typeof setSyncStatus === 'function') setSyncStatus({ ok: true, message: 'Observation and images saved to cloud.' });
       refreshCompletedInspectionTags();
       render();
     } catch (err) {
+      saveInProgress = false;
+      setButtonLoadingState(submitBtn, false, editId ? 'Update Observation' : 'Save Observation');
       if (typeof setSyncStatus === 'function') setSyncStatus({ ok: false, message: err.message || 'Failed to save observation.' });
       alert(err.message || 'Failed to save observation.');
     }
@@ -973,6 +1007,7 @@ function setupRequisitionPage() {
   const result = document.getElementById('reqResult');
   const status2Wrap = document.getElementById('status2Wrap');
   let editId = '';
+  let saveInProgress = false;
 
   UNIT_OPTIONS.forEach((u) => document.getElementById('reqUnit').insertAdjacentHTML('beforeend', `<option>${u}</option>`));
 
@@ -1020,7 +1055,14 @@ function setupRequisitionPage() {
     });
 
     tbody.querySelectorAll('.delete-req').forEach((btn) => {
-      btn.onclick = () => { deleteById('requisitions', btn.dataset.id); render(); };
+      btn.onclick = () => {
+        const row = getCollection('requisitions').find((x) => x.id === btn.dataset.id);
+        if (!row) return;
+        const ok = confirmDeleteRecord('requisition', `Tag: ${row.tag_no || '-'}\nUnit: ${row.unit || '-'}\nResult: ${row.result || '-'}`);
+        if (!ok) return;
+        deleteById('requisitions', btn.dataset.id);
+        render();
+      };
     });
   }
 
@@ -1049,6 +1091,9 @@ function setupRequisitionPage() {
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();
+    if (saveInProgress) return;
+    saveInProgress = true;
+    setButtonLoadingState(submitBtn, true, editId ? 'Update Requisition' : 'Save Requisition', 'Saving Requisition...');
     upsertById('requisitions', {
       id: editId,
       tag_no: document.getElementById('reqTag').value,
@@ -1068,6 +1113,8 @@ function setupRequisitionPage() {
     formTitle.textContent = 'Requisition Form';
     submitBtn.textContent = 'Save Requisition';
     editId = '';
+    saveInProgress = false;
+    setButtonLoadingState(submitBtn, false, 'Save Requisition');
     if (typeof setSyncStatus === 'function') setSyncStatus({ ok: true, message: 'Requisition saved successfully.' });
     render();
   });
