@@ -497,6 +497,12 @@ function normalizeInspectionPayload(payload) {
   };
 }
 
+function localDateISO() {
+  const now = new Date();
+  const local = new Date(now.getTime() - (now.getTimezoneOffset() * 60000));
+  return local.toISOString().slice(0, 10);
+}
+
 const INSPECTION_FORM_FIELDS = [
   'id',
   'equipment_tag_number',
@@ -704,7 +710,7 @@ function setupInspectionPage() {
   document.getElementById('markCompletedBtn').onclick = () => {
     const tag = document.getElementById('equipment_tag_number').value;
     const row = getCollection('inspections').find((r) => r.equipment_tag_number === tag);
-    if (row) upsertById('inspections', { ...row, final_status: 'Completed' }, 'INSP');
+    if (row) upsertById('inspections', { ...row, final_status: 'Completed', completed_at: localDateISO() }, 'INSP');
     renderInspectionList();
   };
 
@@ -712,7 +718,7 @@ function setupInspectionPage() {
     const ids = new Set(Array.from(document.querySelectorAll('.inspection-selector:checked')).map((i) => i.dataset.id));
     if (!ids.size) return;
     const rows = getCollection('inspections');
-    const updates = rows.filter((row) => ids.has(row.id)).map((row) => ({ ...row, final_status: 'Completed' }));
+    const updates = rows.filter((row) => ids.has(row.id)).map((row) => ({ ...row, final_status: 'Completed', completed_at: localDateISO() }));
     batchUpsertById('inspections', updates, 'INSP');
     renderInspectionList();
   };
